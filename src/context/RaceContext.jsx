@@ -11,39 +11,9 @@ const formatMs = (ms) => {
     const millis = ms % 1000
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
 }
-
-// Column availability cache – avoids repeated 400 errors if 'rounds' column doesn't exist yet
-let hasRoundsColumn = null // null = unknown, true/false = cached
-
-const REG_COLS_BASE = 'id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name'
-const REG_COLS_WITH_ROUNDS = 'id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name'
-
-// Try query with rounds first; if 400, retry without and cache
-async function queryRegistrations(filterCol, filterVal) {
-    if (hasRoundsColumn === false) {
-        // Already know rounds doesn't exist — skip straight to base columns
-        const res = await supabase.from('registrations').select(REG_COLS_BASE).ilike(filterCol, filterVal).maybeSingle()
-        if (res.data) res.data.rounds = res.data.rounds || 1
-        return res
-    }
-
-    // Try with rounds
-    const res = await supabase.from('registrations').select(REG_COLS_WITH_ROUNDS).ilike(filterCol, filterVal).maybeSingle()
-    if (res.error && res.error.code === 'PGRST204' || res.error?.message?.includes('column') || res.error?.code === '42703' || (res.error && !res.data)) {
-        // Column might not exist — retry without rounds
-        console.warn('rounds column not found, retrying without it')
-        hasRoundsColumn = false
-        const res2 = await supabase.from('registrations').select(REG_COLS_BASE).ilike(filterCol, filterVal).maybeSingle()
-        if (res2.data) res2.data.rounds = 1
-        return res2
-    }
-
-    if (res.data) {
-        hasRoundsColumn = true
-        res.data.rounds = res.data.rounds || 1
-    }
-    return res
-}
+// ── Safe column list ──
+// Only columns guaranteed to exist in the base registrations table
+const REG_SELECT = 'id, registration_id, full_name, enrollment_no, college, is_paid, status'
 
 // ── Reducer ──
 const initialState = {
@@ -101,7 +71,7 @@ export function RaceProvider({ children }) {
     const fetchQueue = useCallback(async () => {
         const { data, error } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college)')
             .in('race_status', ['queued', 'ready'])
             .order('queued_at', { ascending: true })
 
@@ -132,12 +102,22 @@ export function RaceProvider({ children }) {
         const searchTerm = registrationIdHuman.trim()
         console.log('Searching for:', searchTerm)
 
-        let { data: reg, error: regErr } = await queryRegistrations('registration_id', searchTerm)
+        let { data: reg, error: regErr } = await supabase
+            .from('registrations')
+            .select(REG_SELECT)
+            .ilike('registration_id', searchTerm)
+            .maybeSingle()
+
         console.log('Search by registration_id result:', { reg, error: regErr })
 
         // Fallback: Try enrollment number if registration_id lookup fails
         if (!reg) {
-            const { data: reg2, error: regErr2 } = await queryRegistrations('enrollment_no', searchTerm)
+            const { data: reg2, error: regErr2 } = await supabase
+                .from('registrations')
+                .select(REG_SELECT)
+                .ilike('enrollment_no', searchTerm)
+                .maybeSingle()
+
             console.log('Search by enrollment_no result:', { reg2, error: regErr2 })
 
             if (!reg2) {
@@ -149,8 +129,11 @@ export function RaceProvider({ children }) {
             reg = reg2
         }
 
+        // Default rounds to 1 (column may not exist yet)
+        reg.rounds = reg.rounds || 1
+
         // 2. Eligibility check
-        if (!reg.is_paid || reg.status !== 'PAID' || reg.event_name !== 'Drift X Karting 2026') {
+        if (!reg.is_paid || reg.status !== 'PAID') {
             dispatch({ type: 'SET_LOADING', payload: false })
             showToast('User not eligible or payment incomplete')
             return
@@ -227,7 +210,7 @@ export function RaceProvider({ children }) {
         // Fetch full rider details
         const { data: re } = await supabase
             .from('race_entries')
-            .select('*, registrations!inner(full_name, enrollment_no, college, rounds, registration_id)')
+            .select('*, registrations!inner(full_name, enrollment_no, college, registration_id)')
             .eq('registration_id', registrationId)
             .single()
         if (!re) return
