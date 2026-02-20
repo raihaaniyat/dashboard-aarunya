@@ -68,11 +68,12 @@ export function RaceProvider({ children }) {
     const fetchQueue = useCallback(async () => {
         const { data, error } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college)')
             .in('race_status', ['queued', 'ready'])
             .order('queued_at', { ascending: true })
 
         if (error) {
+            console.error('fetchQueue error:', error)
             showToast('Failed to fetch queue: ' + error.message)
             return
         }
@@ -85,7 +86,7 @@ export function RaceProvider({ children }) {
                 full_name: d.registrations.full_name,
                 enrollment_no: d.registrations.enrollment_no,
                 college: d.registrations.college,
-                rounds: d.registrations.rounds,
+                rounds: d.registrations.rounds || 1,
             })),
         })
     }, [showToast])
@@ -95,27 +96,38 @@ export function RaceProvider({ children }) {
         dispatch({ type: 'SET_LOADING', payload: true })
 
         // 1. Look up registration by human-readable ID or Enrollment Number (Case-Insensitive)
-        let { data: reg } = await supabase
+        const searchTerm = registrationIdHuman.trim()
+        console.log('Searching for:', searchTerm)
+
+        let { data: reg, error: regErr } = await supabase
             .from('registrations')
-            .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
-            .ilike('registration_id', registrationIdHuman.trim())
+            .select('id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name')
+            .ilike('registration_id', searchTerm)
             .maybeSingle()
+
+        console.log('Search by registration_id result:', { reg, error: regErr })
 
         // Fallback: Try enrollment number if registration_id lookup fails
         if (!reg) {
-            const { data: reg2 } = await supabase
+            const { data: reg2, error: regErr2 } = await supabase
                 .from('registrations')
-                .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
-                .ilike('enrollment_no', registrationIdHuman.trim())
+                .select('id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name')
+                .ilike('enrollment_no', searchTerm)
                 .maybeSingle()
+
+            console.log('Search by enrollment_no result:', { reg2, error: regErr2 })
 
             if (!reg2) {
                 dispatch({ type: 'SET_LOADING', payload: false })
-                showToast(`Registration not found for: ${registrationIdHuman}`)
+                const errMsg = regErr?.message || regErr2?.message || 'No matching record in database'
+                showToast(`Search failed for "${searchTerm}": ${errMsg}`)
                 return
             }
             reg = reg2
         }
+
+        // Default rounds to 1 if column doesn't exist
+        reg.rounds = reg.rounds || 1
 
         // 2. Eligibility check
         if (!reg.is_paid || reg.status !== 'PAID' || reg.event_name !== 'Drift X Karting 2026') {
@@ -195,7 +207,7 @@ export function RaceProvider({ children }) {
         // Fetch full rider details
         const { data: re } = await supabase
             .from('race_entries')
-            .select('*, registrations!inner(full_name, enrollment_no, college, rounds, registration_id)')
+            .select('*, registrations!inner(full_name, enrollment_no, college, registration_id)')
             .eq('registration_id', registrationId)
             .single()
         if (!re) return
@@ -215,7 +227,7 @@ export function RaceProvider({ children }) {
                 full_name: re.registrations.full_name,
                 enrollment_no: re.registrations.enrollment_no,
                 college: re.registrations.college,
-                rounds: re.registrations.rounds,
+                rounds: re.registrations.rounds || 1,
                 raceEntry: {
                     race_status: re.race_status,
                     rounds_completed: re.rounds_completed,
