@@ -1,16 +1,48 @@
-# React + Vite
+# Drift X Karting 2026 – Admin Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A professional live lap timing and race control dashboard built with React, Vite, TailwindCSS, and Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Quick Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Environment Variables
+Copy `.env.example` to `.env` and fill in your Supabase credentials:
+```bash
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
 
-## React Compiler
+### 2. Database Setup
+Execute the SQL scripts in the `supabase/` directory in the Supabase SQL Editor in the following order:
+1. `001_race_entries.sql`
+2. `002_laps.sql`
+3. `003_live_leaderboard_view.sql`
+4. `004_concurrency_index.sql`
+5. `005_rls_policies.sql`
+6. `006_update_timestamp_trigger.sql`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. Admin Authentication
+Admin accounts are managed via Supabase Auth (Email/Password).
+- Go to **Supabase Dashboard** -> **Authentication** -> **Users**.
+- Click **"Add User"** -> **"Create New User"**.
+- Use these credentials to log in to the dashboard.
 
-## Expanding the ESLint configuration
+### 4. Local Development
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🏎️ Features
+- **QR Scanning**: Fast rider check-in using `html5-qrcode`.
+- **Manual Search**: Search riders by registration ID.
+- **Race State Machine**: Manage riders from Queue -> Ready -> Racing -> Completed.
+- **Timestamp Stopwatch**: Professional timing using `Date.now()` for millisecond accuracy.
+- **Real-time Leaderboard**: Instant updates via Supabase Realtime.
+- **Concurrency Control**: Prevents multiple riders from racing at the same time.
+- **Dark Racing Theme**: Built with TailwindCSS and custom Inter/JetBrains mono typography.
+
+## 🛠️ Tech Stack
+- **Frontend**: React, Vite
+- **Styling**: TailwindCSS
+- **Database/Auth**: Supabase
+- **Scanner**: html5-qrcode
