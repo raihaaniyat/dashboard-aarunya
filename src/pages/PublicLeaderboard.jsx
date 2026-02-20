@@ -153,7 +153,9 @@ export default function PublicLeaderboard() {
             display: 'flex',
             flexDirection: 'column',
             minHeight: '100vh',
-            paddingBottom: '60px' // For footer ticker
+            paddingBottom: '60px', // For footer ticker
+            overflowX: 'hidden',
+            width: '100%'
         }}>
             <Header />
 
@@ -163,10 +165,19 @@ export default function PublicLeaderboard() {
                 flexWrap: 'wrap',
                 gap: '2rem',
                 padding: 'clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 3rem)',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                width: '100%',
+                maxWidth: '100%'
             }}>
                 {/* Left zone: Current Racer & Stats */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', flex: '1 1 350px' }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2rem',
+                    flex: '1 1 min(100%, 350px)',
+                    minWidth: 0, // CRITICAL FOR PREVENTING FLEX BLOWOUT
+                    maxWidth: '100%'
+                }}>
                     <div style={{ flex: '0 0 auto' }}>
                         <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
                     </div>
@@ -176,7 +187,13 @@ export default function PublicLeaderboard() {
                 </div>
 
                 {/* Right zone: Leaderboard */}
-                <div style={{ display: 'flex', flexDirection: 'column', flex: '2.5 1 500px' }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: '2.5 1 min(100%, 500px)',
+                    minWidth: 0, // CRITICAL FOR PREVENTING FLEX BLOWOUT
+                    maxWidth: '100%'
+                }}>
                     <div style={{
                         background: 'linear-gradient(90deg, var(--accent-red), transparent)',
                         height: '4px',
