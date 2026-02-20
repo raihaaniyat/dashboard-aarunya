@@ -19,7 +19,7 @@ export default function ManualSearch() {
                 <input
                     className="input"
                     type="text"
-                    placeholder="REG-2026-XXXXXX"
+                    placeholder="REG-2026-XXXXX or Enrollment No"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     disabled={loading}

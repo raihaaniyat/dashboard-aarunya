@@ -13,7 +13,7 @@ const formatMs = (ms) => {
 }
 // ── Safe column list ──
 // Only columns guaranteed to exist in the registrations table
-const REG_SELECT = 'id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status'
+const REG_SELECT = 'id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, qr_token'
 
 // ── Reducer ──
 const initialState = {
@@ -95,38 +95,59 @@ export function RaceProvider({ children }) {
     }, [showToast])
 
     // ── Scan rider (QR or manual) ──
-    const scanRider = useCallback(async (registrationIdHuman) => {
+    const scanRider = useCallback(async (rawInput) => {
         dispatch({ type: 'SET_LOADING', payload: true })
 
-        // 1. Look up registration by human-readable ID or Enrollment Number (Case-Insensitive)
-        const searchTerm = registrationIdHuman.trim()
+        const searchTerm = rawInput.trim()
         console.log('Searching for:', searchTerm)
 
-        let { data: reg, error: regErr } = await supabase
-            .from('registrations')
-            .select(REG_SELECT)
-            .ilike('registration_id', searchTerm)
-            .maybeSingle()
+        let reg = null
 
-        console.log('Search by registration_id result:', { reg, error: regErr })
-
-        // Fallback: Try enrollment number if registration_id lookup fails
-        if (!reg) {
-            const { data: reg2, error: regErr2 } = await supabase
+        // ── QR Token detection: tokens start with "dxk_" ──
+        if (searchTerm.startsWith('dxk_')) {
+            const { data, error } = await supabase
                 .from('registrations')
                 .select(REG_SELECT)
-                .ilike('enrollment_no', searchTerm)
+                .eq('qr_token', searchTerm)
+                .eq('is_paid', true)
                 .maybeSingle()
 
-            console.log('Search by enrollment_no result:', { reg2, error: regErr2 })
+            console.log('Search by qr_token result:', { data, error })
 
-            if (!reg2) {
+            if (!data) {
                 dispatch({ type: 'SET_LOADING', payload: false })
-                const errMsg = regErr?.message || regErr2?.message || 'No matching record in database'
-                showToast(`Search failed for "${searchTerm}": ${errMsg}`)
+                showToast('Invalid or Unpaid Pass')
                 return
             }
-            reg = reg2
+            reg = data
+        } else {
+            // ── Fallback: search by registration_id or enrollment_no ──
+            let { data: reg1, error: regErr } = await supabase
+                .from('registrations')
+                .select(REG_SELECT)
+                .ilike('registration_id', searchTerm)
+                .maybeSingle()
+
+            console.log('Search by registration_id result:', { reg1, error: regErr })
+
+            if (!reg1) {
+                const { data: reg2, error: regErr2 } = await supabase
+                    .from('registrations')
+                    .select(REG_SELECT)
+                    .ilike('enrollment_no', searchTerm)
+                    .maybeSingle()
+
+                console.log('Search by enrollment_no result:', { reg2, error: regErr2 })
+
+                if (!reg2) {
+                    dispatch({ type: 'SET_LOADING', payload: false })
+                    const errMsg = regErr?.message || regErr2?.message || 'No matching record in database'
+                    showToast(`Search failed for "${searchTerm}": ${errMsg}`)
+                    return
+                }
+                reg1 = reg2
+            }
+            reg = reg1
         }
 
         // Default rounds to 1 (column may not exist yet)
