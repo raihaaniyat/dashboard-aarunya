@@ -469,13 +469,13 @@ export function RaceProvider({ children }) {
     // ── Admin: Reset entire leaderboard ──
     const resetLeaderboard = useCallback(async () => {
         // Delete all laps first (foreign key constraint)
-        const { error: lapErr } = await supabase.from('laps').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+        const { error: lapErr } = await supabase.from('laps').delete().not('id', 'is', null)
         if (lapErr) {
             showToast('Failed to clear laps: ' + lapErr.message)
             return
         }
         // Delete all race entries
-        const { error: reErr } = await supabase.from('race_entries').delete().neq('registration_id', '00000000-0000-0000-0000-000000000000')
+        const { error: reErr } = await supabase.from('race_entries').delete().not('registration_id', 'is', null)
         if (reErr) {
             showToast('Failed to clear race entries: ' + reErr.message)
             return
