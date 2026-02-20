@@ -12,6 +12,39 @@ const formatMs = (ms) => {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
 }
 
+// Column availability cache – avoids repeated 400 errors if 'rounds' column doesn't exist yet
+let hasRoundsColumn = null // null = unknown, true/false = cached
+
+const REG_COLS_BASE = 'id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name'
+const REG_COLS_WITH_ROUNDS = 'id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name'
+
+// Try query with rounds first; if 400, retry without and cache
+async function queryRegistrations(filterCol, filterVal) {
+    if (hasRoundsColumn === false) {
+        // Already know rounds doesn't exist — skip straight to base columns
+        const res = await supabase.from('registrations').select(REG_COLS_BASE).ilike(filterCol, filterVal).maybeSingle()
+        if (res.data) res.data.rounds = res.data.rounds || 1
+        return res
+    }
+
+    // Try with rounds
+    const res = await supabase.from('registrations').select(REG_COLS_WITH_ROUNDS).ilike(filterCol, filterVal).maybeSingle()
+    if (res.error && res.error.code === 'PGRST204' || res.error?.message?.includes('column') || res.error?.code === '42703' || (res.error && !res.data)) {
+        // Column might not exist — retry without rounds
+        console.warn('rounds column not found, retrying without it')
+        hasRoundsColumn = false
+        const res2 = await supabase.from('registrations').select(REG_COLS_BASE).ilike(filterCol, filterVal).maybeSingle()
+        if (res2.data) res2.data.rounds = 1
+        return res2
+    }
+
+    if (res.data) {
+        hasRoundsColumn = true
+        res.data.rounds = res.data.rounds || 1
+    }
+    return res
+}
+
 // ── Reducer ──
 const initialState = {
     queue: [],
@@ -99,22 +132,12 @@ export function RaceProvider({ children }) {
         const searchTerm = registrationIdHuman.trim()
         console.log('Searching for:', searchTerm)
 
-        let { data: reg, error: regErr } = await supabase
-            .from('registrations')
-            .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
-            .ilike('registration_id', searchTerm)
-            .maybeSingle()
-
+        let { data: reg, error: regErr } = await queryRegistrations('registration_id', searchTerm)
         console.log('Search by registration_id result:', { reg, error: regErr })
 
         // Fallback: Try enrollment number if registration_id lookup fails
         if (!reg) {
-            const { data: reg2, error: regErr2 } = await supabase
-                .from('registrations')
-                .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
-                .ilike('enrollment_no', searchTerm)
-                .maybeSingle()
-
+            const { data: reg2, error: regErr2 } = await queryRegistrations('enrollment_no', searchTerm)
             console.log('Search by enrollment_no result:', { reg2, error: regErr2 })
 
             if (!reg2) {
@@ -125,9 +148,6 @@ export function RaceProvider({ children }) {
             }
             reg = reg2
         }
-
-        // Default rounds to 1 if column doesn't exist
-        reg.rounds = reg.rounds || 1
 
         // 2. Eligibility check
         if (!reg.is_paid || reg.status !== 'PAID' || reg.event_name !== 'Drift X Karting 2026') {
