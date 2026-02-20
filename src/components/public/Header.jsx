@@ -49,7 +49,7 @@ export default function Header() {
             {/* Left Brand & Logos */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 2vw, 1.5rem)', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 1vw, 1rem)' }}>
-                    <img src="/images/aarunyalogo.svg" alt="Aarunya" style={{ height: 'clamp(30px, 5vw, 45px)' }} />
+                    <img src="/images/aarunya.png" alt="Aarunya" style={{ height: 'clamp(30px, 5vw, 45px)' }} />
                     <img src="/images/favicon.avif" alt="Team Scavengers" style={{ height: 'clamp(24px, 4vw, 36px)' }} />
                 </div>
 
