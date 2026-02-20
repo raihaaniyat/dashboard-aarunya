@@ -12,8 +12,8 @@ const formatMs = (ms) => {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
 }
 // ── Safe column list ──
-// Only columns guaranteed to exist in the base registrations table
-const REG_SELECT = 'id, registration_id, full_name, enrollment_no, college, is_paid, status'
+// Only columns guaranteed to exist in the registrations table
+const REG_SELECT = 'id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status'
 
 // ── Reducer ──
 const initialState = {
@@ -71,7 +71,7 @@ export function RaceProvider({ children }) {
     const fetchQueue = useCallback(async () => {
         const { data, error } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college)')
+            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college, rounds)')
             .in('race_status', ['queued', 'ready'])
             .order('queued_at', { ascending: true })
 
@@ -210,7 +210,7 @@ export function RaceProvider({ children }) {
         // Fetch full rider details
         const { data: re } = await supabase
             .from('race_entries')
-            .select('*, registrations!inner(full_name, enrollment_no, college, registration_id)')
+            .select('*, registrations!inner(full_name, enrollment_no, college, rounds, registration_id)')
             .eq('registration_id', registrationId)
             .single()
         if (!re) return
