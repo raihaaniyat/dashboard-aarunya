@@ -445,6 +445,60 @@ export function RaceProvider({ children }) {
         showToast('Rider disqualified', 'success')
     }, [state.activeRider, fetchQueue, showToast])
 
+    // ── Admin: Reset entire leaderboard ──
+    const resetLeaderboard = useCallback(async () => {
+        // Delete all laps first (foreign key constraint)
+        const { error: lapErr } = await supabase.from('laps').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+        if (lapErr) {
+            showToast('Failed to clear laps: ' + lapErr.message)
+            return
+        }
+        // Delete all race entries
+        const { error: reErr } = await supabase.from('race_entries').delete().neq('registration_id', '00000000-0000-0000-0000-000000000000')
+        if (reErr) {
+            showToast('Failed to clear race entries: ' + reErr.message)
+            return
+        }
+        stopwatchRef.current.startTime = null
+        dispatch({ type: 'SET_ACTIVE_RIDER', payload: null })
+        dispatch({ type: 'SET_LAPS', payload: [] })
+        dispatch({ type: 'SET_QUEUE', payload: [] })
+        showToast('Leaderboard reset successfully', 'success')
+    }, [showToast])
+
+    // ── Admin: Remove single rider from race ──
+    const removeRider = useCallback(async (registrationId) => {
+        // Delete their laps first
+        await supabase.from('laps').delete().eq('registration_id', registrationId)
+        // Delete their race entry
+        const { error } = await supabase.from('race_entries').delete().eq('registration_id', registrationId)
+        if (error) {
+            showToast('Failed to remove rider: ' + error.message)
+            return
+        }
+        if (state.activeRider?.registration_id === registrationId) {
+            stopwatchRef.current.startTime = null
+            dispatch({ type: 'SET_ACTIVE_RIDER', payload: null })
+            dispatch({ type: 'SET_LAPS', payload: [] })
+        }
+        await fetchQueue()
+        showToast('Rider removed', 'success')
+    }, [state.activeRider, fetchQueue, showToast])
+
+    // ── Admin: Clear queue (remove non-racing entries) ──
+    const clearQueue = useCallback(async () => {
+        const { error } = await supabase
+            .from('race_entries')
+            .delete()
+            .in('race_status', ['queued', 'ready', 'not_checked_in'])
+        if (error) {
+            showToast('Failed to clear queue: ' + error.message)
+            return
+        }
+        dispatch({ type: 'SET_QUEUE', payload: [] })
+        showToast('Queue cleared', 'success')
+    }, [showToast])
+
     const value = {
         ...state,
         stopwatchRef,
@@ -460,6 +514,9 @@ export function RaceProvider({ children }) {
         editLapTime,
         cancelRider,
         disqualifyRider,
+        resetLeaderboard,
+        removeRider,
+        clearQueue,
         showToast,
     }
 
