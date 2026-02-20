@@ -68,7 +68,7 @@ export function RaceProvider({ children }) {
     const fetchQueue = useCallback(async () => {
         const { data, error } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college)')
+            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college, rounds)')
             .in('race_status', ['queued', 'ready'])
             .order('queued_at', { ascending: true })
 
@@ -101,7 +101,7 @@ export function RaceProvider({ children }) {
 
         let { data: reg, error: regErr } = await supabase
             .from('registrations')
-            .select('id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name')
+            .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
             .ilike('registration_id', searchTerm)
             .maybeSingle()
 
@@ -111,7 +111,7 @@ export function RaceProvider({ children }) {
         if (!reg) {
             const { data: reg2, error: regErr2 } = await supabase
                 .from('registrations')
-                .select('id, registration_id, full_name, enrollment_no, college, is_paid, status, event_name')
+                .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
                 .ilike('enrollment_no', searchTerm)
                 .maybeSingle()
 
@@ -207,7 +207,7 @@ export function RaceProvider({ children }) {
         // Fetch full rider details
         const { data: re } = await supabase
             .from('race_entries')
-            .select('*, registrations!inner(full_name, enrollment_no, college, registration_id)')
+            .select('*, registrations!inner(full_name, enrollment_no, college, rounds, registration_id)')
             .eq('registration_id', registrationId)
             .single()
         if (!re) return
