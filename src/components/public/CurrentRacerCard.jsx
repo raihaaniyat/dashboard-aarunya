@@ -14,21 +14,26 @@ export default function CurrentRacerCard({ activeRacer, liveTimer }) {
             <div className="card" style={{
                 height: '100%',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 border: '1px dashed var(--border-subtle)',
-                background: 'transparent'
+                background: 'transparent',
+                padding: '3rem 1rem'
             }}>
                 <div style={{
                     textAlign: 'center',
                     fontFamily: 'var(--font-heading)',
                     color: 'var(--text-muted)',
                     letterSpacing: '2px',
-                    textTransform: 'uppercase'
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
                 }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>🏎️</div>
-                    <div>Track is clear</div>
-                    <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Next rider preparing...</div>
+                    <div style={{ fontSize: 'clamp(1rem, 3vw, 1.5rem)' }}>Track is clear</div>
+                    <div style={{ fontSize: 'clamp(0.7rem, 2vw, 0.9rem)', marginTop: '0.5rem' }}>Next rider preparing...</div>
                 </div>
             </div>
         )
