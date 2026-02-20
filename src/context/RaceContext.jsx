@@ -94,17 +94,27 @@ export function RaceProvider({ children }) {
     const scanRider = useCallback(async (registrationIdHuman) => {
         dispatch({ type: 'SET_LOADING', payload: true })
 
-        // 1. Look up registration by human-readable ID
-        const { data: reg, error: regErr } = await supabase
+        // 1. Look up registration by human-readable ID or Enrollment Number (Case-Insensitive)
+        let { data: reg } = await supabase
             .from('registrations')
             .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
-            .eq('registration_id', registrationIdHuman.trim())
-            .single()
+            .ilike('registration_id', registrationIdHuman.trim())
+            .maybeSingle()
 
-        if (regErr || !reg) {
-            dispatch({ type: 'SET_LOADING', payload: false })
-            showToast('Registration not found: ' + registrationIdHuman)
-            return
+        // Fallback: Try enrollment number if registration_id lookup fails
+        if (!reg) {
+            const { data: reg2 } = await supabase
+                .from('registrations')
+                .select('id, registration_id, full_name, enrollment_no, college, rounds, is_paid, status, event_name')
+                .ilike('enrollment_no', registrationIdHuman.trim())
+                .maybeSingle()
+
+            if (!reg2) {
+                dispatch({ type: 'SET_LOADING', payload: false })
+                showToast(`Registration not found for: ${registrationIdHuman}`)
+                return
+            }
+            reg = reg2
         }
 
         // 2. Eligibility check
