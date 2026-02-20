@@ -62,6 +62,7 @@ export default function MiniLeaderboard() {
                         <tr>
                             <th style={{ width: '36px' }}>#</th>
                             <th>Rider</th>
+                            <th style={{ textAlign: 'center' }}>Laps</th>
                             <th>Best</th>
                         </tr>
                     </thead>
@@ -73,6 +74,7 @@ export default function MiniLeaderboard() {
                                     <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{l.full_name}</div>
                                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{l.college}</div>
                                 </td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{l.rounds_completed}</td>
                                 <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-cyan)' }}>
                                     {formatMs(l.best_lap_time_ms)}
                                 </td>

@@ -25,7 +25,7 @@ export default function LeaderboardTable({ leaders }) {
                 {/* Table Header */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '80px 1fr 1fr 150px 150px',
+                    gridTemplateColumns: '80px 1fr 1fr 80px 150px 150px',
                     padding: '1rem 1.5rem',
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.9rem',
@@ -38,6 +38,7 @@ export default function LeaderboardTable({ leaders }) {
                     <div>Rk</div>
                     <div>Rider</div>
                     <div>College</div>
+                    <div style={{ textAlign: 'center' }}>Laps</div>
                     <div style={{ textAlign: 'right' }}>Avg Lap</div>
                     <div style={{ textAlign: 'right', color: 'var(--accent-red)' }}>Best Lap</div>
                 </div>
@@ -54,7 +55,7 @@ export default function LeaderboardTable({ leaders }) {
                             key={l.enrollment_no || l.full_name}
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: '80px 1fr 1fr 150px 150px',
+                                gridTemplateColumns: '80px 1fr 1fr 80px 150px 150px',
                                 alignItems: 'center',
                                 padding: '1.25rem 1.5rem',
                                 borderRadius: 'var(--radius-md)',
@@ -95,6 +96,17 @@ export default function LeaderboardTable({ leaders }) {
                                 textTransform: 'uppercase'
                             }}>
                                 {l.college}
+                            </div>
+
+                            {/* Laps */}
+                            <div style={{
+                                fontFamily: 'var(--font-heading)',
+                                fontSize: '1.2rem',
+                                textAlign: 'center',
+                                opacity: 0.9,
+                                fontWeight: 700
+                            }}>
+                                {l.rounds_completed}
                             </div>
 
                             {/* Avg Lap */}
