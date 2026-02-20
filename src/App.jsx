@@ -81,7 +81,10 @@ export default function App() {
     )
   }
 
-  if (!session) {
+  // Auth bypass for production development if VITE_BYPASS_AUTH is 'true'
+  const isBypass = import.meta.env.VITE_BYPASS_AUTH === 'true'
+
+  if (!session && !isBypass) {
     return <Login onLogin={setSession} />
   }
 
