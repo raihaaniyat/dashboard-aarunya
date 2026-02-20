@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { RaceProvider, useRace } from './context/RaceContext'
 import LeftPanel from './components/LeftPanel'
 import CenterPanel from './components/CenterPanel'
 import RightPanel from './components/RightPanel'
-import Login from './components/Login'
 import useRealtimeQueue from './hooks/useRealtimeQueue'
 import useRealtimeLaps from './hooks/useRealtimeLaps'
+import PublicLeaderboard from './pages/PublicLeaderboard'
 
+// ── Admin Dashboard Content ──
 function DashboardContent({ onLogout }) {
   useRealtimeQueue()
   useRealtimeLaps()
@@ -49,26 +51,47 @@ function DashboardContent({ onLogout }) {
   )
 }
 
-export default function App() {
+// ── Admin Password Gate ──
+function AdminGate({ children }) {
+  const [authed, setAuthed] = useState(false)
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD
+  const isBypass = import.meta.env.VITE_BYPASS_AUTH === 'true'
+
   useEffect(() => {
-    // Check for existing session
+    // Check sessionStorage for admin auth
+    if (sessionStorage.getItem('admin_authed') === 'true') {
+      setAuthed(true)
+    }
+    // Check Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
-
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (adminPassword && password === adminPassword) {
+      sessionStorage.setItem('admin_authed', 'true')
+      setAuthed(true)
+      setError('')
+    } else {
+      setError('Incorrect password')
+    }
+  }
+
   const handleLogout = async () => {
+    sessionStorage.removeItem('admin_authed')
+    setAuthed(false)
     await supabase.auth.signOut()
     setSession(null)
   }
@@ -81,16 +104,104 @@ export default function App() {
     )
   }
 
-  // Auth bypass for production development if VITE_BYPASS_AUTH is 'true'
-  const isBypass = import.meta.env.VITE_BYPASS_AUTH === 'true'
-
-  if (!session && !isBypass) {
-    return <Login onLogin={setSession} />
+  // Allow access if: bypass mode, or password matches, or supabase session
+  if (isBypass || authed || session) {
+    return (
+      <RaceProvider>
+        <DashboardContent onLogout={handleLogout} />
+      </RaceProvider>
+    )
   }
 
+  // Password login screen
   return (
-    <RaceProvider>
-      <DashboardContent onLogout={handleLogout} />
-    </RaceProvider>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--bg-primary)',
+    }}>
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '2.5rem',
+        width: '100%',
+        maxWidth: '380px',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏎️</div>
+        <h2 style={{
+          fontSize: '1.3rem',
+          fontWeight: 800,
+          background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '0.25rem',
+        }}>
+          Admin Access
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.5rem' }}>
+          Drift X Karting 2026 Race Control
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <input
+            type="password"
+            placeholder="Enter admin password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1rem',
+              background: 'var(--bg-input)',
+              border: error ? '1px solid var(--accent-red)' : '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              fontSize: '0.85rem',
+              outline: 'none',
+              marginBottom: '0.75rem',
+            }}
+            autoFocus
+          />
+          {error && (
+            <div style={{ color: 'var(--accent-red)', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '0.75rem', fontSize: '0.85rem' }}
+          >
+            Enter Dashboard
+          </button>
+        </form>
+
+        <a
+          href="/"
+          style={{
+            display: 'block',
+            marginTop: '1rem',
+            color: 'var(--text-muted)',
+            fontSize: '0.75rem',
+            textDecoration: 'none',
+          }}
+        >
+          ← Back to Live Leaderboard
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// ── Main App with Routes ──
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<PublicLeaderboard />} />
+      <Route path="/admin" element={<AdminGate />} />
+    </Routes>
   )
 }
