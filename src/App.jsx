@@ -20,7 +20,7 @@ function DashboardContent({ onLogout }) {
     <>
       {/* Header */}
       <header className="dashboard-header">
-        <h1>Drift X Karting 2026</h1>
+        <h1>Drift X Karting 2.0</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Race Control</span>
           <div className="status-dot" />
@@ -143,7 +143,7 @@ function AdminGate({ children }) {
           Admin Access
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.5rem' }}>
-          Drift X Karting 2026 Race Control
+          Drift X Karting 2.0 Race Control
         </p>
 
         <form onSubmit={handleSubmit}>

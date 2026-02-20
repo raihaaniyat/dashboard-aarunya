@@ -39,25 +39,32 @@ export default function Header() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '1.5rem 3rem',
+            padding: 'clamp(0.75rem, 2vw, 1.5rem) clamp(1rem, 3vw, 3rem)',
             background: 'var(--bg-secondary)',
             borderBottom: '1px solid var(--border-subtle)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            flexWrap: 'wrap',
+            gap: '1rem'
         }}>
-            {/* Left Brand */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Left Brand & Logos */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 2vw, 1.5rem)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 1vw, 1rem)' }}>
+                    <img src="/images/aarunyalogo.svg" alt="Aarunya" style={{ height: 'clamp(30px, 5vw, 45px)' }} />
+                    <img src="/images/favicon.avif" alt="Team Scavengers" style={{ height: 'clamp(24px, 4vw, 36px)' }} />
+                </div>
+
                 <div style={{
                     fontFamily: 'var(--font-heading)',
-                    fontSize: '2rem',
+                    fontSize: 'clamp(1.2rem, 3vw, 2rem)',
                     fontWeight: 900,
                     color: 'var(--text-primary)',
-                    letterSpacing: '2px',
+                    letterSpacing: 'clamp(1px, 0.2vw, 2px)',
                     textTransform: 'uppercase',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem'
+                    alignItems: 'baseline',
+                    gap: '0.4rem'
                 }}>
-                    <span style={{ color: 'var(--accent-red)' }}>DRIFT X</span> KARTING
+                    <span style={{ color: 'var(--accent-red)' }}>DRIFT X</span> KARTING <span style={{ color: 'var(--accent-yellow)', fontSize: '0.8em' }}>2.0</span>
                 </div>
             </div>
 

@@ -159,14 +159,14 @@ export default function PublicLeaderboard() {
 
             <div style={{
                 flex: 1,
-                display: 'grid',
-                gridTemplateColumns: 'minmax(350px, 1fr) 2.5fr',
+                display: 'flex',
+                flexWrap: 'wrap',
                 gap: '2rem',
-                padding: '2rem 3rem',
+                padding: 'clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 3rem)',
                 boxSizing: 'border-box'
             }}>
                 {/* Left zone: Current Racer & Stats */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', flex: '1 1 350px' }}>
                     <div style={{ flex: '0 0 auto' }}>
                         <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
                     </div>
@@ -176,7 +176,7 @@ export default function PublicLeaderboard() {
                 </div>
 
                 {/* Right zone: Leaderboard */}
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '2.5 1 500px' }}>
                     <div style={{
                         background: 'linear-gradient(90deg, var(--accent-red), transparent)',
                         height: '4px',
