@@ -1,0 +1,11 @@
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 69 modules transformed.
+[31m✗[39m Build failed in 1.12s
+[31merror during build:
+[31mCould not resolve "../lib/supabase" from "src/components/public/Header.jsx"[31m
+file: [36mD:/aarunya-dashboard/src/components/public/Header.jsx[31m
+    at getRollupError (file:///D:/aarunya-dashboard/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///D:/aarunya-dashboard/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at ModuleLoader.handleInvalidResolvedId (file:///D:/aarunya-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:21687:24)
+    at file:///D:/aarunya-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:21647:26[39m

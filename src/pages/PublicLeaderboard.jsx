@@ -1,254 +1,194 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-
-const formatMs = (ms) => {
-    if (ms == null) return '--'
-    const minutes = Math.floor(ms / 60000)
-    const seconds = Math.floor((ms % 60000) / 1000)
-    const millis = ms % 1000
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
-}
+import Header from '../components/public/Header'
+import LeaderboardTable from '../components/public/LeaderboardTable'
+import CurrentRacerCard from '../components/public/CurrentRacerCard'
+import StatsPanel from '../components/public/StatsPanel'
+import FooterTicker from '../components/public/FooterTicker'
 
 export default function PublicLeaderboard() {
     const [leaders, setLeaders] = useState([])
-    const [lastUpdated, setLastUpdated] = useState(new Date())
     const [activeRacer, setActiveRacer] = useState(null)
+    const [liveTimer, setLiveTimer] = useState(0)
+    const [stats, setStats] = useState({
+        fastestOfDday: null,
+        totalParticipants: 0,
+        totalLaps: 0,
+        avgOverall: null
+    })
 
-    const fetchLeaders = useCallback(async () => {
-        const { data } = await supabase
+    const timerRef = useRef(null)
+
+    // ── Fetch Leaderboard & Stats ──
+    const fetchData = useCallback(async () => {
+        // Fetch top 10 from view
+        const { data: leadData } = await supabase
             .from('race_entries')
-            .select('registration_id, best_lap_time_ms, rounds_completed, race_status, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, registrations!inner(full_name, enrollment_no, college, rounds)')
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
-            .limit(20)
+            .limit(10)
 
-        setLeaders(
-            (data || []).map((d, i) => ({
-                rank: i + 1,
-                full_name: d.registrations.full_name,
-                enrollment_no: d.registrations.enrollment_no,
-                college: d.registrations.college,
-                best_lap_time_ms: d.best_lap_time_ms,
-                rounds_completed: d.rounds_completed,
-                total_rounds: d.registrations.rounds || 1,
-                race_status: d.race_status,
-            }))
-        )
-        setLastUpdated(new Date())
+        const formattedLeaders = (leadData || []).map((d, i) => ({
+            rank: i + 1,
+            full_name: d.registrations.full_name,
+            enrollment_no: d.registrations.enrollment_no,
+            college: d.registrations.college,
+            best_lap_time_ms: d.best_lap_time_ms,
+            average_lap_time_ms: d.average_lap_time_ms,
+            rounds_completed: d.rounds_completed,
+            total_rounds: d.registrations.rounds || 1,
+            race_status: d.race_status,
+        }))
+        setLeaders(formattedLeaders)
+
+        // Calculate Stats
+        const { data: allData } = await supabase.from('race_entries').select('best_lap_time_ms, average_lap_time_ms, rounds_completed').not('best_lap_time_ms', 'is', null)
+        if (allData && allData.length > 0) {
+            const fastest = Math.min(...allData.map(d => d.best_lap_time_ms))
+            const totalLaps = allData.reduce((acc, curr) => acc + curr.rounds_completed, 0)
+            const sumAvgs = allData.reduce((acc, curr) => acc + curr.average_lap_time_ms, 0)
+            const avgOverall = Math.round(sumAvgs / allData.length)
+
+            setStats({
+                fastestOfDday: fastest,
+                totalParticipants: allData.length,
+                totalLaps: totalLaps,
+                avgOverall: avgOverall
+            })
+        }
     }, [])
 
+    // ── Fetch Active Racer ──
     const fetchActiveRacer = useCallback(async () => {
         const { data } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, registrations!inner(full_name, college)')
+            .select('registration_id, race_status, rounds_completed, race_started_at, registrations!inner(full_name, college, enrollment_no, rounds)')
             .eq('race_status', 'racing')
             .limit(1)
             .maybeSingle()
 
-        setActiveRacer(data ? {
-            full_name: data.registrations.full_name,
-            college: data.registrations.college,
-        } : null)
+        if (data) {
+            // Need the latest lap time to calculate current running lap
+            const { data: laps } = await supabase
+                .from('laps')
+                .select('*')
+                .eq('registration_id', data.registration_id)
+                .order('lap_number', { ascending: true })
+
+            const validLaps = (laps || []).filter(l => l.valid !== false)
+            let currentLapStart = new Date(data.race_started_at).getTime()
+
+            if (validLaps.length > 0) {
+                // The start of the current lap is the race_started_at + sum of previous lap times
+                const totalPrevLapsMs = validLaps.reduce((acc, l) => acc + l.lap_time_ms, 0)
+                currentLapStart += totalPrevLapsMs
+            }
+
+            setActiveRacer({
+                full_name: data.registrations.full_name,
+                college: data.registrations.college,
+                enrollment_no: data.registrations.enrollment_no,
+                rounds_completed: validLaps.length,
+                total_rounds: data.registrations.rounds || 1,
+                currentLapStartTime: currentLapStart
+            })
+        } else {
+            setActiveRacer(null)
+            setLiveTimer(0)
+        }
     }, [])
 
+    // ── Realtime & Timer Loop ──
     useEffect(() => {
-        fetchLeaders()
+        fetchData()
         fetchActiveRacer()
 
         const channel = supabase
             .channel('public-leaderboard')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'race_entries' }, () => {
-                fetchLeaders()
+                fetchData()
                 fetchActiveRacer()
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'laps' }, () => {
-                fetchLeaders()
+                fetchData()
+                fetchActiveRacer()
             })
             .subscribe()
 
         return () => { supabase.removeChannel(channel) }
-    }, [fetchLeaders, fetchActiveRacer])
+    }, [fetchData, fetchActiveRacer])
 
-    const getRankStyle = (rank) => {
-        if (rank === 1) return { background: 'linear-gradient(135deg, #ffd700, #ffaa00)', color: '#000', fontWeight: 800 }
-        if (rank === 2) return { background: 'linear-gradient(135deg, #c0c0c0, #a0a0a0)', color: '#000', fontWeight: 700 }
-        if (rank === 3) return { background: 'linear-gradient(135deg, #cd7f32, #a0622e)', color: '#fff', fontWeight: 700 }
-        return { background: 'var(--bg-card)', color: 'var(--text-muted)', fontWeight: 600 }
-    }
+    useEffect(() => {
+        if (activeRacer && activeRacer.currentLapStartTime) {
+            timerRef.current = setInterval(() => {
+                setLiveTimer(Date.now() - activeRacer.currentLapStartTime)
+            }, 10) // 10ms for smooth ms updates
+        } else {
+            setLiveTimer(0)
+            if (timerRef.current) clearInterval(timerRef.current)
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current)
+        }
+    }, [activeRacer])
+
+    // Auto-scroll the page every 15 seconds if content exceeds height
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+            if (maxScroll > 0) {
+                const currentScroll = window.scrollY
+                window.scrollTo({
+                    top: currentScroll >= maxScroll - 10 ? 0 : document.documentElement.scrollHeight,
+                    behavior: 'smooth'
+                })
+            }
+        }, 15000)
+        return () => clearInterval(interval)
+    }, [])
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: 'clamp(1rem, 3vw, 2rem)' }}>
-            {/* Header */}
-            <header style={{
-                textAlign: 'center',
-                marginBottom: 'clamp(1rem, 3vw, 2rem)',
-                padding: 'clamp(1rem, 2vw, 1.5rem)',
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh',
+            paddingBottom: '60px' // For footer ticker
+        }}>
+            <Header />
+
+            <div style={{
+                flex: 1,
+                display: 'grid',
+                gridTemplateColumns: 'minmax(350px, 1fr) 2.5fr',
+                gap: '2rem',
+                padding: '2rem 3rem',
+                boxSizing: 'border-box'
             }}>
-                <div style={{
-                    fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)',
-                    color: 'var(--accent-cyan)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '3px',
-                    fontWeight: 600,
-                    marginBottom: '0.25rem',
-                }}>
-                    Aarunya 2026 Presents
-                </div>
-                <h1 style={{
-                    fontSize: 'clamp(2rem, 5vw, 4rem)',
-                    fontWeight: 900,
-                    background: 'linear-gradient(135deg, #6366f1, #3b82f6, #06b6d4)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    letterSpacing: '-1px',
-                    lineHeight: 1.1,
-                }}>
-                    DRIFT X KARTING
-                </h1>
-                <div style={{
-                    fontSize: 'clamp(0.7rem, 1.2vw, 0.85rem)',
-                    color: 'var(--text-muted)',
-                    marginTop: '0.5rem',
-                }}>
-                    Live Leaderboard • Updated {lastUpdated.toLocaleTimeString()}
-                </div>
-            </header>
-
-            {/* Active Racer Banner */}
-            {activeRacer && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15))',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: 'clamp(0.75rem, 2vw, 1.25rem)',
-                    textAlign: 'center',
-                    marginBottom: 'clamp(1rem, 2vw, 1.5rem)',
-                    animation: 'pulse-glow 2s ease-in-out infinite',
-                }}>
-                    <div style={{ fontSize: 'clamp(0.65rem, 1vw, 0.75rem)', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>
-                        🏎️ Currently Racing
+                {/* Left zone: Current Racer & Stats */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div style={{ flex: '0 0 auto' }}>
+                        <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
                     </div>
-                    <div style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
-                        {activeRacer.full_name}
-                    </div>
-                    <div style={{ fontSize: 'clamp(0.65rem, 1vw, 0.8rem)', color: 'var(--text-secondary)' }}>
-                        {activeRacer.college}
+                    <div style={{ flex: 1 }}>
+                        <StatsPanel stats={stats} />
                     </div>
                 </div>
-            )}
 
-            {/* Leaderboard Table */}
-            {leaders.length === 0 ? (
-                <div style={{
-                    textAlign: 'center',
-                    padding: 'clamp(3rem, 8vw, 6rem)',
-                    color: 'var(--text-muted)',
-                }}>
-                    <div style={{ fontSize: 'clamp(3rem, 8vw, 6rem)', marginBottom: '1rem' }}>🏁</div>
-                    <div style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)', fontWeight: 600 }}>
-                        Race hasn't started yet
-                    </div>
-                    <div style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1rem)', marginTop: '0.5rem' }}>
-                        Times will appear here in real-time
-                    </div>
+                {/* Right zone: Leaderboard */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{
+                        background: 'linear-gradient(90deg, var(--accent-red), transparent)',
+                        height: '4px',
+                        width: '100%',
+                        marginBottom: '1rem',
+                        borderRadius: '2px'
+                    }} />
+                    <LeaderboardTable leaders={leaders} />
                 </div>
-            ) : (
-                <div style={{
-                    maxWidth: '900px',
-                    margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'clamp(0.4rem, 1vw, 0.6rem)',
-                }}>
-                    {leaders.map((l) => (
-                        <div
-                            key={l.enrollment_no || l.full_name}
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'clamp(40px, 6vw, 56px) 1fr auto',
-                                alignItems: 'center',
-                                gap: 'clamp(0.5rem, 1.5vw, 1rem)',
-                                background: l.rank <= 3
-                                    ? `linear-gradient(135deg, ${l.rank === 1 ? 'rgba(255, 215, 0, 0.08)' : l.rank === 2 ? 'rgba(192, 192, 192, 0.08)' : 'rgba(205, 127, 50, 0.08)'}, transparent)`
-                                    : 'var(--bg-card)',
-                                border: l.rank <= 3
-                                    ? `1px solid ${l.rank === 1 ? 'rgba(255, 215, 0, 0.2)' : l.rank === 2 ? 'rgba(192, 192, 192, 0.2)' : 'rgba(205, 127, 50, 0.2)'}`
-                                    : '1px solid var(--border-subtle)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: 'clamp(0.6rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.25rem)',
-                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            }}
-                        >
-                            {/* Rank */}
-                            <div style={{
-                                ...getRankStyle(l.rank),
-                                width: 'clamp(32px, 5vw, 44px)',
-                                height: 'clamp(32px, 5vw, 44px)',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 'clamp(0.8rem, 1.5vw, 1.1rem)',
-                            }}>
-                                {l.rank <= 3 ? ['🥇', '🥈', '🥉'][l.rank - 1] : l.rank}
-                            </div>
+            </div>
 
-                            {/* Name & College */}
-                            <div>
-                                <div style={{
-                                    fontWeight: 700,
-                                    fontSize: 'clamp(0.9rem, 2vw, 1.2rem)',
-                                    color: 'var(--text-primary)',
-                                }}>
-                                    {l.full_name}
-                                </div>
-                                <div style={{
-                                    fontSize: 'clamp(0.6rem, 1vw, 0.8rem)',
-                                    color: 'var(--text-muted)',
-                                    display: 'flex',
-                                    gap: '0.75rem',
-                                    flexWrap: 'wrap',
-                                }}>
-                                    <span>{l.college}</span>
-                                    <span>•</span>
-                                    <span>{l.rounds_completed}/{l.total_rounds} rounds</span>
-                                </div>
-                            </div>
-
-                            {/* Best Lap Time */}
-                            <div style={{
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: 'clamp(1rem, 2.5vw, 1.6rem)',
-                                fontWeight: 800,
-                                color: l.rank === 1 ? '#ffd700' : l.rank === 2 ? '#c0c0c0' : l.rank === 3 ? '#cd7f32' : 'var(--accent-cyan)',
-                                textAlign: 'right',
-                                whiteSpace: 'nowrap',
-                            }}>
-                                {formatMs(l.best_lap_time_ms)}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Footer */}
-            <footer style={{
-                textAlign: 'center',
-                marginTop: 'clamp(2rem, 4vw, 3rem)',
-                padding: '1rem',
-                fontSize: 'clamp(0.6rem, 1vw, 0.75rem)',
-                color: 'var(--text-muted)',
-            }}>
-                Powered by Aarunya • MITS Gwalior • Live updates every second
-            </footer>
-
-            {/* Pulse animation for active racer */}
-            <style>{`
-                @keyframes pulse-glow {
-                    0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.1); }
-                    50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.25); }
-                }
-            `}</style>
+            <FooterTicker />
         </div>
     )
 }
