@@ -540,3 +540,45 @@ body {
   background: var(--bg-card-hover);
   color: var(--text-muted);
 }
+
+/* ─── Login Page ─── */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--bg-primary);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 2rem;
+}
+
+/* ─── QR Scanner html5-qrcode overrides ─── */
+#qr-reader {
+  border: none !important;
+  background: var(--bg-secondary) !important;
+}
+
+#qr-reader video {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Hide the default html5-qrcode UI chrome */
+#qr-reader__dashboard,
+#qr-reader__status_span,
+#qr-reader__header_message {
+  display: none !important;
+}
+
+#qr-reader img[alt="Info icon"] {
+  display: none !important;
+}
+
+/* Fix scanning region outline */
+#qr-shaded-region {
+  border-color: var(--accent-indigo) !important;
+}

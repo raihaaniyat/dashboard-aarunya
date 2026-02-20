@@ -5,7 +5,6 @@ import { useRace } from '../context/RaceContext'
 export default function QRScanner() {
     const { scanRider, loading } = useRace()
     const scannerRef = useRef(null)
-    const containerRef = useRef(null)
     const [isScanning, setIsScanning] = useState(false)
 
     const startScanner = async () => {
@@ -15,9 +14,12 @@ export default function QRScanner() {
             scannerRef.current = scanner
             await scanner.start(
                 { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 220, height: 220 } },
+                {
+                    fps: 10,
+                    qrbox: { width: 200, height: 200 },
+                    aspectRatio: 1.0,
+                },
                 (decodedText) => {
-                    // Pause scanning while processing
                     scanner.pause()
                     scanRider(decodedText).finally(() => {
                         try { scanner.resume() } catch { /* may have stopped */ }
@@ -49,16 +51,34 @@ export default function QRScanner() {
     return (
         <div className="card">
             <div className="panel-title">📷 QR Scanner</div>
+
+            {/* 
+        IMPORTANT: The #qr-reader container must NOT have display:flex or 
+        any children when the scanner is active — html5-qrcode injects its 
+        own DOM elements and conflicts with flex layout cause a black screen.
+      */}
+            {!isScanning && (
+                <div
+                    style={{
+                        minHeight: '180px',
+                        background: 'var(--bg-input)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-subtle)',
+                    }}
+                >
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Camera off</span>
+                </div>
+            )}
+
             <div
                 id="qr-reader"
-                ref={containerRef}
                 className="qr-scanner-container"
-                style={{ minHeight: isScanning ? 'auto' : '180px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-                {!isScanning && (
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Camera off</span>
-                )}
-            </div>
+                style={{ display: isScanning ? 'block' : 'none' }}
+            />
+
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
                 {!isScanning ? (
                     <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={startScanner} disabled={loading}>
