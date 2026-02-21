@@ -54,12 +54,14 @@ function DashboardContent({ onLogout }) {
 // ── Admin Password Gate ──
 function AdminGate({ children }) {
   const [authed, setAuthed] = useState(false)
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD
+  const adminUsername = import.meta.env.VITE_ADMIN_USERNAME || 'admin-scavengers'
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin@scavengers123'
   const isBypass = import.meta.env.VITE_BYPASS_AUTH === 'true'
 
   useEffect(() => {
@@ -80,12 +82,12 @@ function AdminGate({ children }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (adminPassword && password === adminPassword) {
+    if (username === adminUsername && password === adminPassword) {
       sessionStorage.setItem('admin_authed', 'true')
       setAuthed(true)
       setError('')
     } else {
-      setError('Incorrect password')
+      setError('Incorrect username or password')
     }
   }
 
@@ -148,8 +150,26 @@ function AdminGate({ children }) {
 
         <form onSubmit={handleSubmit}>
           <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1rem',
+              background: 'var(--bg-input)',
+              border: error ? '1px solid var(--accent-red)' : '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              fontSize: '0.85rem',
+              outline: 'none',
+              marginBottom: '0.5rem',
+            }}
+            autoFocus
+          />
+          <input
             type="password"
-            placeholder="Enter admin password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={{
@@ -163,7 +183,6 @@ function AdminGate({ children }) {
               outline: 'none',
               marginBottom: '0.75rem',
             }}
-            autoFocus
           />
           {error && (
             <div style={{ color: 'var(--accent-red)', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
