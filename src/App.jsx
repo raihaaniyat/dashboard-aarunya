@@ -57,27 +57,15 @@ function AdminGate({ children }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   const adminUsername = import.meta.env.VITE_ADMIN_USERNAME || 'admin-scavengers'
   const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin@scavengers123'
-  const isBypass = import.meta.env.VITE_BYPASS_AUTH === 'true'
 
   useEffect(() => {
     // Check sessionStorage for admin auth
     if (sessionStorage.getItem('admin_authed') === 'true') {
       setAuthed(true)
     }
-    // Check Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-    return () => subscription.unsubscribe()
   }, [])
 
   const handleSubmit = (e) => {
@@ -91,23 +79,13 @@ function AdminGate({ children }) {
     }
   }
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     sessionStorage.removeItem('admin_authed')
     setAuthed(false)
-    await supabase.auth.signOut()
-    setSession(null)
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading...</div>
-      </div>
-    )
-  }
-
-  // Allow access if: bypass mode, or password matches, or supabase session
-  if (isBypass || authed || session) {
+  // Allow access if password matches
+  if (authed) {
     return (
       <RaceProvider>
         <DashboardContent onLogout={handleLogout} />
