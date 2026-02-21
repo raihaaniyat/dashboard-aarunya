@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { RaceProvider, useRace } from './context/RaceContext'
 import LeftPanel from './components/LeftPanel'
