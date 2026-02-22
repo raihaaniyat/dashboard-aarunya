@@ -150,20 +150,7 @@ export default function PublicLeaderboard() {
         }
     }, [activeRacer])
 
-    // Auto-scroll the page every 15 seconds if content exceeds height
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-            if (maxScroll > 0) {
-                const currentScroll = window.scrollY
-                window.scrollTo({
-                    top: currentScroll >= maxScroll - 10 ? 0 : document.documentElement.scrollHeight,
-                    behavior: 'smooth'
-                })
-            }
-        }, 15000)
-        return () => clearInterval(interval)
-    }, [])
+    // Page starts at top naturally — no auto-scroll
 
     const currentDay = getRaceDay()
 
