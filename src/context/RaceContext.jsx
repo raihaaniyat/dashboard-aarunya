@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { getRaceDay } from '../lib/raceDay'
 
 const RaceContext = createContext(null)
 
@@ -67,11 +68,13 @@ export function RaceProvider({ children }) {
         setTimeout(() => dispatch({ type: 'SET_TOAST', payload: null }), 4000)
     }, [])
 
-    // ── Fetch queue ──
+    // ── Fetch queue (scoped to current day) ──
     const fetchQueue = useCallback(async () => {
+        const currentDay = getRaceDay()
         const { data, error } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, queued_at, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .select('registration_id, race_status, queued_at, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .eq('race_day', currentDay)
             .in('race_status', ['queued', 'ready'])
             .order('queued_at', { ascending: true })
 
@@ -160,17 +163,19 @@ export function RaceProvider({ children }) {
             return
         }
 
-        // 3. Check / create race_entries row
+        // 3. Check / create race_entries row (scoped to current day)
+        const currentDay = getRaceDay()
         const { data: existing } = await supabase
             .from('race_entries')
             .select('*')
             .eq('registration_id', reg.id)
-            .single()
+            .eq('race_day', currentDay)
+            .maybeSingle()
 
         if (existing) {
             if (existing.race_status === 'completed') {
                 dispatch({ type: 'SET_LOADING', payload: false })
-                showToast('Rider already completed their race')
+                showToast('Rider already completed their race today')
                 return
             }
             if (['queued', 'ready', 'racing'].includes(existing.race_status)) {
@@ -187,6 +192,7 @@ export function RaceProvider({ children }) {
                     registration_id: reg.id,
                     race_status: 'queued',
                     queued_at: new Date().toISOString(),
+                    race_day: currentDay,
                 })
             if (insertErr) {
                 dispatch({ type: 'SET_LOADING', payload: false })
@@ -199,6 +205,7 @@ export function RaceProvider({ children }) {
                 .from('race_entries')
                 .update({ race_status: 'queued', queued_at: new Date().toISOString() })
                 .eq('registration_id', reg.id)
+                .eq('race_day', currentDay)
             if (updateErr) {
                 dispatch({ type: 'SET_LOADING', payload: false })
                 showToast('Failed to re-queue rider: ' + updateErr.message)
@@ -213,10 +220,12 @@ export function RaceProvider({ children }) {
 
     // ── Mark Ready ──
     const markReady = useCallback(async (registrationId) => {
+        const currentDay = getRaceDay()
         const { error } = await supabase
             .from('race_entries')
             .update({ race_status: 'ready' })
             .eq('registration_id', registrationId)
+            .eq('race_day', currentDay)
             .eq('race_status', 'queued')
         if (error) {
             showToast('Failed to mark ready: ' + error.message)
@@ -228,19 +237,22 @@ export function RaceProvider({ children }) {
 
     // ── Select rider to active panel ──
     const selectRider = useCallback(async (registrationId) => {
-        // Fetch full rider details
+        const currentDay = getRaceDay()
+        // Fetch full rider details for current day
         const { data: re } = await supabase
             .from('race_entries')
             .select('*, registrations!inner(full_name, enrollment_no, college, rounds, registration_id)')
             .eq('registration_id', registrationId)
+            .eq('race_day', currentDay)
             .single()
         if (!re) return
 
-        // Fetch laps
+        // Fetch laps for current day
         const { data: lapData } = await supabase
             .from('laps')
             .select('*')
             .eq('registration_id', registrationId)
+            .eq('race_day', currentDay)
             .order('lap_number', { ascending: true })
 
         dispatch({
@@ -252,6 +264,7 @@ export function RaceProvider({ children }) {
                 enrollment_no: re.registrations.enrollment_no,
                 college: re.registrations.college,
                 rounds: re.registrations.rounds || 1,
+                race_day: currentDay,
                 raceEntry: {
                     race_status: re.race_status,
                     rounds_completed: re.rounds_completed,
@@ -267,12 +280,14 @@ export function RaceProvider({ children }) {
     // ── Start Lap (begin stopwatch) ──
     const startLap = useCallback(async () => {
         if (!state.activeRider) return
+        const currentDay = getRaceDay()
 
-        // Check concurrency: no one else is racing
+        // Check concurrency: no one else is racing today
         const { data: racingNow } = await supabase
             .from('race_entries')
             .select('registration_id')
             .eq('race_status', 'racing')
+            .eq('race_day', currentDay)
 
         if (racingNow && racingNow.length > 0 && racingNow[0].registration_id !== state.activeRider.registration_id) {
             showToast('Another rider is currently racing. Stop them first.')
@@ -287,6 +302,7 @@ export function RaceProvider({ children }) {
                 race_started_at: state.activeRider.raceEntry.race_started_at || now,
             })
             .eq('registration_id', state.activeRider.registration_id)
+            .eq('race_day', currentDay)
 
         if (error) {
             showToast('Failed to start: ' + error.message)
@@ -301,19 +317,21 @@ export function RaceProvider({ children }) {
     // ── Stop Lap (record lap) ──
     const stopLap = useCallback(async () => {
         if (!state.activeRider || !stopwatchRef.current.startTime) return
+        const currentDay = getRaceDay()
 
         const lapTimeMs = Date.now() - stopwatchRef.current.startTime
         stopwatchRef.current.startTime = null
 
         const lapNumber = state.laps.filter(l => l.valid !== false).length + 1
 
-        // Insert lap
+        // Insert lap with race_day
         const { data: newLap, error: lapErr } = await supabase
             .from('laps')
             .insert({
                 registration_id: state.activeRider.registration_id,
                 lap_number: lapNumber,
                 lap_time_ms: lapTimeMs,
+                race_day: currentDay,
             })
             .select()
             .single()
@@ -352,6 +370,7 @@ export function RaceProvider({ children }) {
             .from('race_entries')
             .update(updateData)
             .eq('registration_id', state.activeRider.registration_id)
+            .eq('race_day', currentDay)
 
         dispatch({ type: 'UPDATE_ACTIVE_RACE_ENTRY', payload: updateData })
 
@@ -385,10 +404,12 @@ export function RaceProvider({ children }) {
             const times = validLaps.map(l => l.lap_time_ms)
             const best = Math.min(...times)
             const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length)
+            const currentDay = getRaceDay()
             await supabase
                 .from('race_entries')
                 .update({ rounds_completed: validLaps.length, best_lap_time_ms: best, average_lap_time_ms: avg })
                 .eq('registration_id', state.activeRider.registration_id)
+                .eq('race_day', currentDay)
             dispatch({ type: 'UPDATE_ACTIVE_RACE_ENTRY', payload: { rounds_completed: validLaps.length, best_lap_time_ms: best, average_lap_time_ms: avg } })
         }
         showToast('Lap marked invalid', 'success')
@@ -417,6 +438,7 @@ export function RaceProvider({ children }) {
         // Recalculate
         const updatedLaps = state.laps.map(l => l.id === lapId ? { ...l, lap_time_ms: newTimeMs } : l).filter(l => l.valid !== false)
         if (updatedLaps.length > 0) {
+            const currentDay = getRaceDay()
             const times = updatedLaps.map(l => l.lap_time_ms)
             const best = Math.min(...times)
             const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length)
@@ -424,6 +446,7 @@ export function RaceProvider({ children }) {
                 .from('race_entries')
                 .update({ best_lap_time_ms: best, average_lap_time_ms: avg })
                 .eq('registration_id', state.activeRider.registration_id)
+                .eq('race_day', currentDay)
             dispatch({ type: 'UPDATE_ACTIVE_RACE_ENTRY', payload: { best_lap_time_ms: best, average_lap_time_ms: avg } })
         }
         showToast('Lap time updated', 'success')
@@ -431,10 +454,12 @@ export function RaceProvider({ children }) {
 
     // ── Cancel rider ──
     const cancelRider = useCallback(async (registrationId) => {
+        const currentDay = getRaceDay()
         const { error } = await supabase
             .from('race_entries')
             .update({ race_status: 'cancelled' })
             .eq('registration_id', registrationId)
+            .eq('race_day', currentDay)
         if (error) {
             showToast('Failed to cancel: ' + error.message)
             return
@@ -451,10 +476,12 @@ export function RaceProvider({ children }) {
     // ── Disqualify ──
     const disqualifyRider = useCallback(async () => {
         if (!state.activeRider) return
+        const currentDay = getRaceDay()
         const { error } = await supabase
             .from('race_entries')
             .update({ race_status: 'disqualified' })
             .eq('registration_id', state.activeRider.registration_id)
+            .eq('race_day', currentDay)
         if (error) {
             showToast('Failed to disqualify: ' + error.message)
             return
@@ -487,12 +514,13 @@ export function RaceProvider({ children }) {
         showToast('Leaderboard reset successfully', 'success')
     }, [showToast])
 
-    // ── Admin: Remove single rider from race ──
+    // ── Admin: Remove single rider from race (current day) ──
     const removeRider = useCallback(async (registrationId) => {
-        // Delete their laps first
-        await supabase.from('laps').delete().eq('registration_id', registrationId)
-        // Delete their race entry
-        const { error } = await supabase.from('race_entries').delete().eq('registration_id', registrationId)
+        const currentDay = getRaceDay()
+        // Delete their laps for current day first
+        await supabase.from('laps').delete().eq('registration_id', registrationId).eq('race_day', currentDay)
+        // Delete their race entry for current day
+        const { error } = await supabase.from('race_entries').delete().eq('registration_id', registrationId).eq('race_day', currentDay)
         if (error) {
             showToast('Failed to remove rider: ' + error.message)
             return

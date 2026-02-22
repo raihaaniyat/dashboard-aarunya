@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { getRaceDay } from '../../lib/raceDay'
 
 export default function Header() {
+    const raceDay = getRaceDay()
     const [currentTime, setCurrentTime] = useState(new Date())
     const [status, setStatus] = useState('OFFLINE') // 'OFFLINE', 'LIVE', 'PAUSED'
 
@@ -95,6 +97,22 @@ export default function Header() {
                 }}>
                     {status}
                 </span>
+            </div>
+
+            {/* Day Badge */}
+            <div style={{
+                padding: '0.5rem 1.2rem',
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.5)',
+                borderRadius: '50px',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)',
+                color: '#818cf8',
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+            }}>
+                Day {raceDay}
             </div>
 
             {/* Right Time */}

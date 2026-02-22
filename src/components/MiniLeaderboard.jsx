@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRace } from '../context/RaceContext'
+import { getRaceDay } from '../lib/raceDay'
 
 export default function MiniLeaderboard() {
     const { formatMs, removeRider } = useRace()
     const [leaders, setLeaders] = useState([])
 
     const fetchLeaders = async () => {
+        const currentDay = getRaceDay()
         const { data } = await supabase
             .from('race_entries')
-            .select('registration_id, best_lap_time_ms, rounds_completed, race_status, registrations!inner(full_name, enrollment_no, college)')
+            .select('registration_id, best_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college)')
+            .eq('race_day', currentDay)
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
         setLeaders(
@@ -48,7 +51,7 @@ export default function MiniLeaderboard() {
 
     return (
         <div className="card" style={{ marginTop: '0.75rem' }}>
-            <div className="panel-title">🏆 Leaderboard</div>
+            <div className="panel-title">🏆 Leaderboard — Day {getRaceDay()}</div>
 
             {leaders.length === 0 ? (
                 <div className="empty-state">

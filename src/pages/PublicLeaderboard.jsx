@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { getRaceDay, TOTAL_DAYS } from '../lib/raceDay'
 import Header from '../components/public/Header'
 import LeaderboardTable from '../components/public/LeaderboardTable'
 import CurrentRacerCard from '../components/public/CurrentRacerCard'
@@ -7,6 +8,7 @@ import StatsPanel from '../components/public/StatsPanel'
 import FooterTicker from '../components/public/FooterTicker'
 
 export default function PublicLeaderboard() {
+    const [selectedDay, setSelectedDay] = useState(getRaceDay())
     const [leaders, setLeaders] = useState([])
     const [activeRacer, setActiveRacer] = useState(null)
     const [liveTimer, setLiveTimer] = useState(0)
@@ -19,12 +21,13 @@ export default function PublicLeaderboard() {
 
     const timerRef = useRef(null)
 
-    // ── Fetch Leaderboard & Stats ──
+    // ── Fetch Leaderboard & Stats (scoped to selectedDay) ──
     const fetchData = useCallback(async () => {
-        // Fetch top 10 from view
+        // Fetch top 10 for the selected day
         const { data: leadData } = await supabase
             .from('race_entries')
-            .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .eq('race_day', selectedDay)
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
             .limit(10)
@@ -42,8 +45,13 @@ export default function PublicLeaderboard() {
         }))
         setLeaders(formattedLeaders)
 
-        // Calculate Stats
-        const { data: allData } = await supabase.from('race_entries').select('best_lap_time_ms, average_lap_time_ms, rounds_completed').not('best_lap_time_ms', 'is', null)
+        // Calculate Stats for the selected day
+        const { data: allData } = await supabase
+            .from('race_entries')
+            .select('best_lap_time_ms, average_lap_time_ms, rounds_completed')
+            .eq('race_day', selectedDay)
+            .not('best_lap_time_ms', 'is', null)
+
         if (allData && allData.length > 0) {
             const fastest = Math.min(...allData.map(d => d.best_lap_time_ms))
             const totalLaps = allData.reduce((acc, curr) => acc + curr.rounds_completed, 0)
@@ -56,15 +64,24 @@ export default function PublicLeaderboard() {
                 totalLaps: totalLaps,
                 avgOverall: avgOverall
             })
+        } else {
+            setStats({
+                fastestOfDday: null,
+                totalParticipants: 0,
+                totalLaps: 0,
+                avgOverall: null
+            })
         }
-    }, [])
+    }, [selectedDay])
 
-    // ── Fetch Active Racer ──
+    // ── Fetch Active Racer (current day only) ──
     const fetchActiveRacer = useCallback(async () => {
+        const currentDay = getRaceDay()
         const { data } = await supabase
             .from('race_entries')
-            .select('registration_id, race_status, rounds_completed, race_started_at, registrations!inner(full_name, college, enrollment_no, rounds)')
+            .select('registration_id, race_status, rounds_completed, race_started_at, race_day, registrations!inner(full_name, college, enrollment_no, rounds)')
             .eq('race_status', 'racing')
+            .eq('race_day', currentDay)
             .limit(1)
             .maybeSingle()
 
@@ -74,6 +91,7 @@ export default function PublicLeaderboard() {
                 .from('laps')
                 .select('*')
                 .eq('registration_id', data.registration_id)
+                .eq('race_day', data.race_day)
                 .order('lap_number', { ascending: true })
 
             const validLaps = (laps || []).filter(l => l.valid !== false)
@@ -148,6 +166,8 @@ export default function PublicLeaderboard() {
         return () => clearInterval(interval)
     }, [])
 
+    const currentDay = getRaceDay()
+
     return (
         <div style={{
             display: 'flex',
@@ -158,6 +178,61 @@ export default function PublicLeaderboard() {
             width: '100%'
         }}>
             <Header />
+
+            {/* ── Day Selector Tabs ── */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '1rem clamp(1rem, 3vw, 3rem) 0',
+                flexWrap: 'wrap'
+            }}>
+                {Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1).map(day => (
+                    <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        style={{
+                            padding: '0.6rem 1.5rem',
+                            fontFamily: 'var(--font-heading)',
+                            fontSize: 'clamp(0.75rem, 2vw, 0.95rem)',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '2px',
+                            border: selectedDay === day
+                                ? '2px solid var(--accent-red)'
+                                : '2px solid var(--border-subtle)',
+                            borderRadius: '50px',
+                            background: selectedDay === day
+                                ? 'linear-gradient(135deg, rgba(227, 24, 55, 0.2), rgba(227, 24, 55, 0.05))'
+                                : 'var(--bg-card)',
+                            color: selectedDay === day
+                                ? 'var(--accent-red)'
+                                : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            boxShadow: selectedDay === day
+                                ? 'var(--shadow-glow-red)'
+                                : 'none',
+                            position: 'relative',
+                        }}
+                    >
+                        Day {day}
+                        {day === currentDay && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-6px',
+                                right: '-6px',
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                background: 'var(--accent-green)',
+                                border: '2px solid var(--bg-primary)',
+                                animation: 'pulse 1.5s infinite',
+                            }} />
+                        )}
+                    </button>
+                ))}
+            </div>
 
             <div style={{
                 flex: 1,
@@ -182,7 +257,7 @@ export default function PublicLeaderboard() {
                         <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <StatsPanel stats={stats} />
+                        <StatsPanel stats={stats} dayLabel={selectedDay} />
                     </div>
                 </div>
 

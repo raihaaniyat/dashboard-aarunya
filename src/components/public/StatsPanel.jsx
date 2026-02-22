@@ -8,7 +8,7 @@ const formatMs = (ms) => {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
 }
 
-export default function StatsPanel({ stats }) {
+export default function StatsPanel({ stats, dayLabel }) {
     const { fastestOfDday, totalParticipants, totalLaps, avgOverall } = stats
 
     return (
@@ -21,7 +21,7 @@ export default function StatsPanel({ stats }) {
             {/* Box 1: Fastest of the Day */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(135deg, rgba(227, 24, 55, 0.1), rgba(227, 24, 55, 0))', padding: '1.5rem 1rem' }}>
                 <div style={{ fontSize: 'clamp(0.6rem, 1.5vw, 0.8rem)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '0.5rem' }}>
-                    Fastest Day
+                    Fastest Day {dayLabel || ''}
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 900, color: 'var(--accent-red)', textShadow: 'var(--shadow-glow-red)' }}>
                     {formatMs(fastestOfDday)}
