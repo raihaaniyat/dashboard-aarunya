@@ -23,7 +23,7 @@ export default function StatsPanel({ stats, dayLabel }) {
                 <div style={{ fontSize: 'clamp(0.6rem, 1.5vw, 0.8rem)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '0.5rem' }}>
                     Fastest Day {dayLabel || ''}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 900, color: 'var(--accent-red)', textShadow: 'var(--shadow-glow-red)' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 900, color: 'var(--accent-red)' }}>
                     {formatMs(fastestOfDday)}
                 </div>
             </div>

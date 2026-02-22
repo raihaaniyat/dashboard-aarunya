@@ -30,7 +30,6 @@ export default function PublicLeaderboard() {
             .eq('race_day', selectedDay)
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
-            .limit(10)
 
         const formattedLeaders = (leadData || []).map((d, i) => ({
             rank: i + 1,

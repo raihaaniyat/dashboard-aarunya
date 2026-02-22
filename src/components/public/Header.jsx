@@ -44,7 +44,7 @@ export default function Header() {
             padding: 'clamp(0.75rem, 2vw, 1.5rem) clamp(1rem, 3vw, 3rem)',
             background: 'var(--bg-secondary)',
             borderBottom: '1px solid var(--border-subtle)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
             flexWrap: 'wrap',
             gap: '1rem'
         }}>
@@ -79,7 +79,7 @@ export default function Header() {
                 background: status === 'LIVE' ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 215, 0, 0.1)',
                 border: `1px solid ${status === 'LIVE' ? 'var(--accent-green)' : 'var(--accent-yellow)'}`,
                 borderRadius: '50px',
-                boxShadow: status === 'LIVE' ? 'var(--shadow-glow-green)' : 'none',
+                boxShadow: status === 'LIVE' ? '0 0 8px rgba(21,128,61,0.2)' : 'none',
                 transition: 'all 0.3s ease'
             }}>
                 <div style={{

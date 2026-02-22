@@ -14,7 +14,7 @@ export default function LeaderboardTable({ leaders }) {
         if (rank === 1) return { background: 'var(--gradient-gold)', color: '#000', transform: 'scale(1.02)' }
         if (rank === 2) return { background: 'var(--gradient-silver)', color: '#000', transform: 'scale(1.01)' }
         if (rank === 3) return { background: 'var(--gradient-bronze)', color: '#fff', transform: 'scale(1.005)' }
-        return { background: 'var(--bg-card)', color: 'var(--text-primary)' }
+        return { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }
     }
 
     return (
@@ -60,7 +60,7 @@ export default function LeaderboardTable({ leaders }) {
                                 padding: '1.25rem 1.5rem',
                                 borderRadius: 'var(--radius-md)',
                                 ...getRowStyle(l.rank),
-                                boxShadow: l.rank <= 3 ? '0 10px 30px rgba(0,0,0,0.5)' : 'none',
+                                boxShadow: l.rank <= 3 ? '0 4px 15px rgba(0,0,0,0.15)' : 'none',
                                 border: l.rank > 3 ? '1px solid var(--border-subtle)' : 'none',
                                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                 position: 'relative',
@@ -125,7 +125,7 @@ export default function LeaderboardTable({ leaders }) {
                                 fontSize: l.rank <= 3 ? '1.5rem' : '1.3rem',
                                 fontWeight: 900,
                                 textAlign: 'right',
-                                textShadow: l.rank > 3 ? 'var(--shadow-glow-red)' : 'none',
+                                textShadow: 'none',
                                 color: l.rank > 3 ? 'var(--accent-red)' : 'inherit'
                             }}>
                                 {formatMs(l.best_lap_time_ms)}

@@ -1,38 +1,38 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens (Team Scavengers Theme) ─── */
+/* ─── Design Tokens (Light Mode — Sunlight Readable) ─── */
 :root {
   /* Core Backgrounds */
-  --bg-primary: #050505;
-  --bg-secondary: #0a0a0a;
-  --bg-card: #111111;
-  --bg-card-hover: #1a1a1a;
-  --bg-input: #0f0f0f;
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f0f0;
+  --bg-input: #f8f8f8;
 
   /* Borders */
-  --border-subtle: #222;
+  --border-subtle: #d4d4d4;
   --border-accent: #E31837;
   /* Blood Red */
 
   /* Text Colors */
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --text-muted: #666666;
+  --text-primary: #111111;
+  --text-secondary: #444444;
+  --text-muted: #888888;
 
   /* Accent Colors */
-  --accent-red: #E31837;
-  /* Team Scavengers Blood Red */
-  --accent-yellow: #FFD700;
-  --accent-orange: #FF4500;
-  --accent-green: #00FF00;
-  --accent-cyan: #00FFFF;
+  --accent-red: #C41230;
+  /* Slightly deeper for light bg contrast */
+  --accent-yellow: #D4A600;
+  --accent-orange: #E03E00;
+  --accent-green: #15803d;
+  --accent-cyan: #0e7490;
 
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #E31837, #8B0000);
   --gradient-gold: linear-gradient(135deg, #FFD700, #FFA500);
-  --gradient-silver: linear-gradient(135deg, #E0E0E0, #9E9E9E);
+  --gradient-silver: linear-gradient(135deg, #D0D0D0, #9E9E9E);
   --gradient-bronze: linear-gradient(135deg, #CD7F32, #8B4513);
-  --gradient-racing: linear-gradient(90deg, transparent, rgba(227, 24, 55, 0.2), transparent);
+  --gradient-racing: linear-gradient(90deg, transparent, rgba(227, 24, 55, 0.1), transparent);
 
   /* Fonts */
   --font-heading: 'Orbitron', sans-serif;
@@ -40,19 +40,18 @@
   --font-body: 'Rajdhani', sans-serif;
   --font-tech: 'Audiowide', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  /* Keep for timers */
 
-  /* Border Radius (Sharper for aggressive racing look) */
+  /* Border Radius */
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
   --radius-xl: 12px;
 
   /* Shadows */
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-glow-red: 0 0 15px rgba(227, 24, 55, 0.5);
-  --shadow-glow-yellow: 0 0 15px rgba(255, 215, 0, 0.5);
-  --shadow-glow-green: 0 0 15px rgba(0, 255, 0, 0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-glow-red: 0 0 10px rgba(227, 24, 55, 0.25);
+  --shadow-glow-yellow: 0 0 10px rgba(212, 166, 0, 0.3);
+  --shadow-glow-green: 0 0 10px rgba(21, 128, 61, 0.2);
 }
 
 /* ─── Reset & Base ─── */
@@ -160,7 +159,7 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 1rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   position: relative;
   overflow: hidden;
 }
@@ -370,14 +369,14 @@ body {
   font-weight: 700;
   text-align: center;
   color: var(--accent-cyan);
-  text-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+  text-shadow: none;
   letter-spacing: 0.05em;
   padding: 1rem 0;
 }
 
 .stopwatch-display.racing {
   color: var(--accent-green);
-  text-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+  text-shadow: none;
   animation: glow 1.5s ease-in-out infinite alternate;
 }
 
@@ -411,12 +410,12 @@ body {
 
 .data-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(42, 42, 69, 0.5);
+  border-bottom: 1px solid rgba(200, 200, 200, 0.5);
   color: var(--text-secondary);
 }
 
 .data-table tr:hover td {
-  background: rgba(99, 102, 241, 0.04);
+  background: rgba(227, 24, 55, 0.04);
   color: var(--text-primary);
 }
 
@@ -604,7 +603,7 @@ body {
 }
 
 .rank-default {
-  background: var(--bg-card-hover);
+  background: #e5e5e5;
   color: var(--text-muted);
 }
 
