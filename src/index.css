@@ -54,6 +54,35 @@
   --shadow-glow-green: 0 0 10px rgba(21, 128, 61, 0.2);
 }
 
+/* ─── Dark Mode Override ─── */
+[data-theme="dark"] {
+  --bg-primary: #050505;
+  --bg-secondary: #0a0a0a;
+  --bg-card: #111111;
+  --bg-card-hover: #1a1a1a;
+  --bg-input: #0f0f0f;
+
+  --border-subtle: #222;
+
+  --text-primary: #ffffff;
+  --text-secondary: #aaaaaa;
+  --text-muted: #666666;
+
+  --accent-red: #E31837;
+  --accent-yellow: #FFD700;
+  --accent-orange: #FF4500;
+  --accent-green: #00FF00;
+  --accent-cyan: #00FFFF;
+
+  --gradient-silver: linear-gradient(135deg, #E0E0E0, #9E9E9E);
+  --gradient-racing: linear-gradient(90deg, transparent, rgba(227, 24, 55, 0.2), transparent);
+
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow-red: 0 0 15px rgba(227, 24, 55, 0.5);
+  --shadow-glow-yellow: 0 0 15px rgba(255, 215, 0, 0.5);
+  --shadow-glow-green: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+
 /* ─── Reset & Base ─── */
 *,
 *::before,

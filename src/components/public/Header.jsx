@@ -5,7 +5,22 @@ import { getRaceDay } from '../../lib/raceDay'
 export default function Header() {
     const raceDay = getRaceDay()
     const [currentTime, setCurrentTime] = useState(new Date())
-    const [status, setStatus] = useState('OFFLINE') // 'OFFLINE', 'LIVE', 'PAUSED'
+    const [status, setStatus] = useState('OFFLINE')
+    const [theme, setTheme] = useState(() => {
+        return localStorage.getItem('dxk-theme') || 'light'
+    })
+
+    // Apply theme on mount and changes
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark')
+        } else {
+            document.documentElement.removeAttribute('data-theme')
+        }
+        localStorage.setItem('dxk-theme', theme)
+    }, [theme])
+
+    const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
 
     useEffect(() => {
         // Clock tick
@@ -114,6 +129,36 @@ export default function Header() {
             }}>
                 Day {raceDay}
             </div>
+
+            {/* Theme Toggle */}
+            <button
+                onClick={toggleTheme}
+                style={{
+                    padding: '0.5rem 1rem',
+                    background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '50px',
+                    cursor: 'pointer',
+                    fontSize: '1.1rem',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                }}
+                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            >
+                {theme === 'light' ? '🌙' : '☀️'}
+                <span style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    color: 'var(--text-secondary)',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                }}>
+                    {theme === 'light' ? 'Dark' : 'Light'}
+                </span>
+            </button>
 
             {/* Right Time */}
             <div style={{
