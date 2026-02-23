@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { getRaceDay, TOTAL_DAYS } from '../lib/raceDay'
+import { getRaceDay } from '../lib/raceDay'
 import Header from '../components/public/Header'
 import LeaderboardTable from '../components/public/LeaderboardTable'
 import CurrentRacerCard from '../components/public/CurrentRacerCard'
@@ -8,69 +8,68 @@ import StatsPanel from '../components/public/StatsPanel'
 import FooterTicker from '../components/public/FooterTicker'
 
 export default function PublicLeaderboard() {
-    // Data for each day: { 1: { leaders: [], stats: {} }, 2: { ... }, 3: { ... } }
-    const [dayData, setDayData] = useState({})
+    const [leaders, setLeaders] = useState([])
     const [activeRacer, setActiveRacer] = useState(null)
     const [liveTimer, setLiveTimer] = useState(0)
+    const [stats, setStats] = useState({
+        fastestOfDday: null,
+        totalParticipants: 0,
+        totalLaps: 0,
+        avgOverall: null
+    })
 
     const timerRef = useRef(null)
 
-    // ── Fetch ALL leaderboard data, then group by race_day on the client ──
-    const fetchAllDays = useCallback(async () => {
-        // Single query — no race_day filter so it works whether or not 014 migration was applied
-        const { data: allEntries } = await supabase
+    // ── Fetch Leaderboard & Stats ──
+    const fetchData = useCallback(async () => {
+        const { data: leadData } = await supabase
             .from('race_entries')
             .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
 
-        // Group entries by race_day (fallback to day 1 if column doesn't exist)
-        const grouped = {}
-        for (let day = 1; day <= TOTAL_DAYS; day++) grouped[day] = { entries: [] }
+        const formattedLeaders = (leadData || []).map((d, i) => ({
+            rank: i + 1,
+            full_name: d.registrations.full_name,
+            enrollment_no: d.registrations.enrollment_no,
+            college: d.registrations.college,
+            best_lap_time_ms: d.best_lap_time_ms,
+            average_lap_time_ms: d.average_lap_time_ms,
+            rounds_completed: d.rounds_completed,
+            total_rounds: d.registrations.rounds || 1,
+            race_status: d.race_status,
+        }))
+        setLeaders(formattedLeaders)
 
-            ; (allEntries || []).forEach(d => {
-                const day = d.race_day || 1 // Default to day 1 if race_day missing
-                if (!grouped[day]) grouped[day] = { entries: [] }
-                grouped[day].entries.push(d)
+        // Calculate Stats
+        const { data: allData } = await supabase
+            .from('race_entries')
+            .select('best_lap_time_ms, average_lap_time_ms, rounds_completed')
+            .not('best_lap_time_ms', 'is', null)
+
+        if (allData && allData.length > 0) {
+            const fastest = Math.min(...allData.map(d => d.best_lap_time_ms))
+            const totalLaps = allData.reduce((acc, curr) => acc + curr.rounds_completed, 0)
+            const sumAvgs = allData.reduce((acc, curr) => acc + curr.average_lap_time_ms, 0)
+            const avgOverall = Math.round(sumAvgs / allData.length)
+
+            setStats({
+                fastestOfDday: fastest,
+                totalParticipants: allData.length,
+                totalLaps: totalLaps,
+                avgOverall: avgOverall
             })
-
-        // Build leaders + stats for each day
-        const results = {}
-        for (let day = 1; day <= TOTAL_DAYS; day++) {
-            const dayEntries = grouped[day]?.entries || []
-
-            // Sort by best_lap_time and assign ranks
-            dayEntries.sort((a, b) => a.best_lap_time_ms - b.best_lap_time_ms)
-
-            const leaders = dayEntries.map((d, i) => ({
-                rank: i + 1,
-                full_name: d.registrations.full_name,
-                enrollment_no: d.registrations.enrollment_no,
-                college: d.registrations.college,
-                best_lap_time_ms: d.best_lap_time_ms,
-                average_lap_time_ms: d.average_lap_time_ms,
-                rounds_completed: d.rounds_completed,
-                total_rounds: d.registrations.rounds || 1,
-                race_status: d.race_status,
-            }))
-
-            // Stats
-            let stats = { fastestOfDday: null, totalParticipants: 0, totalLaps: 0, avgOverall: null }
-            if (dayEntries.length > 0) {
-                const fastest = Math.min(...dayEntries.map(d => d.best_lap_time_ms))
-                const totalLaps = dayEntries.reduce((acc, d) => acc + d.rounds_completed, 0)
-                const sumAvgs = dayEntries.reduce((acc, d) => acc + (d.average_lap_time_ms || 0), 0)
-                const avgOverall = Math.round(sumAvgs / dayEntries.length)
-                stats = { fastestOfDday: fastest, totalParticipants: dayEntries.length, totalLaps, avgOverall }
-            }
-
-            results[day] = { leaders, stats }
+        } else {
+            setStats({
+                fastestOfDday: null,
+                totalParticipants: 0,
+                totalLaps: 0,
+                avgOverall: null
+            })
         }
-
-        setDayData(results)
     }, [])
 
-    // ── Fetch Active Racer (any currently racing) ──
+    // ── Fetch Active Racer ──
     const fetchActiveRacer = useCallback(async () => {
         const { data } = await supabase
             .from('race_entries')
@@ -80,7 +79,6 @@ export default function PublicLeaderboard() {
             .maybeSingle()
 
         if (data) {
-            // Fetch laps — try with race_day first, fallback without
             let lapsData = null
             if (data.race_day) {
                 const { data: laps } = await supabase
@@ -91,7 +89,6 @@ export default function PublicLeaderboard() {
                     .order('lap_number', { ascending: true })
                 lapsData = laps
             }
-            // Fallback: fetch laps without race_day filter
             if (!lapsData || lapsData.length === 0) {
                 const { data: laps } = await supabase
                     .from('laps')
@@ -125,23 +122,23 @@ export default function PublicLeaderboard() {
 
     // ── Realtime & Timer Loop ──
     useEffect(() => {
-        fetchAllDays()
+        fetchData()
         fetchActiveRacer()
 
         const channel = supabase
             .channel('public-leaderboard')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'race_entries' }, () => {
-                fetchAllDays()
+                fetchData()
                 fetchActiveRacer()
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'laps' }, () => {
-                fetchAllDays()
+                fetchData()
                 fetchActiveRacer()
             })
             .subscribe()
 
         return () => { supabase.removeChannel(channel) }
-    }, [fetchAllDays, fetchActiveRacer])
+    }, [fetchData, fetchActiveRacer])
 
     useEffect(() => {
         if (activeRacer && activeRacer.currentLapStartTime) {
@@ -157,15 +154,6 @@ export default function PublicLeaderboard() {
         }
     }, [activeRacer])
 
-    const currentDay = getRaceDay()
-
-    // Day colors for visual distinction
-    const dayColors = {
-        1: { accent: '#e31837', gradient: 'linear-gradient(90deg, #e31837, transparent)' },
-        2: { accent: '#3b82f6', gradient: 'linear-gradient(90deg, #3b82f6, transparent)' },
-        3: { accent: '#8b5cf6', gradient: 'linear-gradient(90deg, #8b5cf6, transparent)' },
-    }
-
     return (
         <div style={{
             display: 'flex',
@@ -177,80 +165,51 @@ export default function PublicLeaderboard() {
         }}>
             <Header />
 
-            {/* Current Racer Card (if someone is racing right now) */}
-            {activeRacer && (
-                <div style={{ padding: '1rem clamp(1rem, 3vw, 3rem) 0' }}>
-                    <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
-                </div>
-            )}
-
-            {/* ── All Days Leaderboards ── */}
-            {Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1).map(day => {
-                const data = dayData[day] || { leaders: [], stats: { fastestOfDday: null, totalParticipants: 0, totalLaps: 0, avgOverall: null } }
-                const colors = dayColors[day] || dayColors[1]
-
-                return (
-                    <div
-                        key={day}
-                        style={{
-                            padding: 'clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3rem)',
-                            borderBottom: day < TOTAL_DAYS ? '1px solid var(--border-subtle)' : 'none',
-                        }}
-                    >
-                        {/* Day Header */}
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '1rem',
-                            marginBottom: '1.5rem',
-                        }}>
-                            <div style={{
-                                fontFamily: 'var(--font-heading)',
-                                fontSize: 'clamp(1.5rem, 4vw, 2.2rem)',
-                                fontWeight: 900,
-                                textTransform: 'uppercase',
-                                letterSpacing: '3px',
-                                color: colors.accent,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem',
-                            }}>
-                                🏁 Day {day}
-                                {day === currentDay && (
-                                    <span style={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 600,
-                                        padding: '3px 10px',
-                                        borderRadius: '50px',
-                                        background: 'rgba(34, 197, 94, 0.15)',
-                                        color: 'var(--accent-green)',
-                                        border: '1px solid var(--accent-green)',
-                                        letterSpacing: '1px',
-                                        textTransform: 'uppercase',
-                                        animation: 'pulse 1.5s infinite',
-                                    }}>
-                                        Live
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{
-                                flex: 1,
-                                height: '4px',
-                                background: colors.gradient,
-                                borderRadius: '2px',
-                            }} />
-                        </div>
-
-                        {/* Stats row for this day */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <StatsPanel stats={data.stats} dayLabel={day} />
-                        </div>
-
-                        {/* Leaderboard table for this day */}
-                        <LeaderboardTable leaders={data.leaders} />
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '2rem',
+                padding: 'clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 3rem)',
+                boxSizing: 'border-box',
+                width: '100%',
+                maxWidth: '100%'
+            }}>
+                {/* Left zone: Current Racer & Stats */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2rem',
+                    flex: '1 1 min(100%, 350px)',
+                    minWidth: 0,
+                    maxWidth: '100%'
+                }}>
+                    <div style={{ flex: '0 0 auto' }}>
+                        <CurrentRacerCard activeRacer={activeRacer} liveTimer={liveTimer} />
                     </div>
-                )
-            })}
+                    <div style={{ flex: 1 }}>
+                        <StatsPanel stats={stats} dayLabel={''} />
+                    </div>
+                </div>
+
+                {/* Right zone: Leaderboard */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: '2.5 1 min(100%, 500px)',
+                    minWidth: 0,
+                    maxWidth: '100%'
+                }}>
+                    <div style={{
+                        background: 'linear-gradient(90deg, var(--accent-red), transparent)',
+                        height: '4px',
+                        width: '100%',
+                        marginBottom: '1rem',
+                        borderRadius: '2px'
+                    }} />
+                    <LeaderboardTable leaders={leaders} />
+                </div>
+            </div>
 
             <FooterTicker />
         </div>
