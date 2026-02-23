@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 export default function FooterTicker() {
     const messages = [
         "Welcome to Drift X Karting 2.0",
-        "Aarunya Technical Festival",
+        "Aarunya 2.0",
         "MITS Gwalior",
         "Scan QR Code at the registration desk to participate",
         "Fastest lap wins the grand prize!",
