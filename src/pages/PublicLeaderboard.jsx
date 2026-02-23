@@ -165,6 +165,26 @@ export default function PublicLeaderboard() {
         }}>
             <Header />
 
+            {/* Day 3 Heading */}
+            <div style={{
+                textAlign: 'center',
+                padding: 'clamp(1rem, 3vw, 2rem) 1rem 0',
+            }}>
+                <h2 style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    letterSpacing: '4px',
+                    background: 'linear-gradient(135deg, var(--accent-red), #ff6b6b)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    margin: 0,
+                }}>
+                    Day 3 Leaderboard — Drift x Karting
+                </h2>
+            </div>
+
             <div style={{
                 flex: 1,
                 display: 'flex',
