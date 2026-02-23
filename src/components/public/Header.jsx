@@ -127,7 +127,7 @@ export default function Header() {
                 letterSpacing: '2px',
                 textTransform: 'uppercase',
             }}>
-                Day 3
+                Day {raceDay}
             </div>
 
             {/* Theme Toggle */}

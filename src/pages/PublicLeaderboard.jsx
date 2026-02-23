@@ -22,9 +22,11 @@ export default function PublicLeaderboard() {
 
     // ── Fetch Leaderboard & Stats ──
     const fetchData = useCallback(async () => {
+        const currentDay = getRaceDay()
         const { data: leadData } = await supabase
             .from('race_entries')
             .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .eq('race_day', currentDay)
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
 
@@ -45,6 +47,7 @@ export default function PublicLeaderboard() {
         const { data: allData } = await supabase
             .from('race_entries')
             .select('best_lap_time_ms, average_lap_time_ms, rounds_completed')
+            .eq('race_day', currentDay)
             .not('best_lap_time_ms', 'is', null)
 
         if (allData && allData.length > 0) {
@@ -181,7 +184,7 @@ export default function PublicLeaderboard() {
                     WebkitTextFillColor: 'transparent',
                     margin: 0,
                 }}>
-                    Day 3 Leaderboard — Drift x Karting
+                    Day 4 Leaderboard — Drift x Karting
                 </h2>
             </div>
 

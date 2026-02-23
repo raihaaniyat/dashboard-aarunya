@@ -163,22 +163,38 @@ export function RaceProvider({ children }) {
             return
         }
 
-        // 3. Check / create race_entries row (scoped to current day)
+        // 3. Check if rider already raced on ANY previous day (no common riders across days)
         const currentDay = getRaceDay()
-        const { data: existing } = await supabase
+        const { data: allDayEntries } = await supabase
+            .from('race_entries')
+            .select('race_day, race_status')
+            .eq('registration_id', reg.id)
+
+        const previousDayEntry = (allDayEntries || []).find(
+            e => e.race_day !== currentDay && ['completed', 'queued', 'ready', 'racing'].includes(e.race_status)
+        )
+        if (previousDayEntry) {
+            dispatch({ type: 'SET_LOADING', payload: false })
+            showToast(`Rider already raced on Day ${previousDayEntry.race_day}. No repeat entries allowed.`)
+            return
+        }
+
+        // 4. Check / create race_entries row for current day
+        const existing = (allDayEntries || []).find(e => e.race_day === currentDay)
+        const { data: existingFull } = existing ? await supabase
             .from('race_entries')
             .select('*')
             .eq('registration_id', reg.id)
             .eq('race_day', currentDay)
-            .maybeSingle()
+            .maybeSingle() : { data: null }
 
-        if (existing) {
-            if (existing.race_status === 'completed') {
+        if (existingFull) {
+            if (existingFull.race_status === 'completed') {
                 dispatch({ type: 'SET_LOADING', payload: false })
                 showToast('Rider already completed their race today')
                 return
             }
-            if (['queued', 'ready', 'racing'].includes(existing.race_status)) {
+            if (['queued', 'ready', 'racing'].includes(existingFull.race_status)) {
                 dispatch({ type: 'SET_LOADING', payload: false })
                 showToast('Rider is already in the queue / racing')
                 return
