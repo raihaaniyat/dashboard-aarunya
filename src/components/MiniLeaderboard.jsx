@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRace } from '../context/RaceContext'
-import { getRaceDay, TOTAL_DAYS } from '../lib/raceDay'
+import { TOTAL_DAYS } from '../lib/raceDay'
 
 export default function MiniLeaderboard() {
     const { formatMs, removeRider } = useRace()
@@ -9,15 +9,22 @@ export default function MiniLeaderboard() {
     const [selectedDay, setSelectedDay] = useState(0) // 0 = All Days
 
     const fetchLeaders = useCallback(async () => {
-        let query = supabase
+        // Fetch ALL entries without race_day filter (works whether or not migration was applied)
+        const { data } = await supabase
             .from('race_entries')
             .select('registration_id, best_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college)')
-        if (selectedDay > 0) query = query.eq('race_day', selectedDay)
-        const { data } = await query
             .not('best_lap_time_ms', 'is', null)
             .order('best_lap_time_ms', { ascending: true })
+
+        let entries = data || []
+
+        // Filter on client side if a specific day is selected
+        if (selectedDay > 0) {
+            entries = entries.filter(d => (d.race_day || 1) === selectedDay)
+        }
+
         setLeaders(
-            (data || []).map((d, i) => ({
+            entries.map((d, i) => ({
                 rank: i + 1,
                 registration_id: d.registration_id,
                 full_name: d.registrations.full_name,
@@ -26,7 +33,7 @@ export default function MiniLeaderboard() {
                 best_lap_time_ms: d.best_lap_time_ms,
                 rounds_completed: d.rounds_completed,
                 race_status: d.race_status,
-                race_day: d.race_day,
+                race_day: d.race_day || 1,
             }))
         )
     }, [selectedDay])

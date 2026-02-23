@@ -15,20 +15,34 @@ export default function PublicLeaderboard() {
 
     const timerRef = useRef(null)
 
-    // ── Fetch Leaderboard & Stats for ALL days at once ──
+    // ── Fetch ALL leaderboard data, then group by race_day on the client ──
     const fetchAllDays = useCallback(async () => {
+        // Single query — no race_day filter so it works whether or not 014 migration was applied
+        const { data: allEntries } = await supabase
+            .from('race_entries')
+            .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
+            .not('best_lap_time_ms', 'is', null)
+            .order('best_lap_time_ms', { ascending: true })
+
+        // Group entries by race_day (fallback to day 1 if column doesn't exist)
+        const grouped = {}
+        for (let day = 1; day <= TOTAL_DAYS; day++) grouped[day] = { entries: [] }
+
+            ; (allEntries || []).forEach(d => {
+                const day = d.race_day || 1 // Default to day 1 if race_day missing
+                if (!grouped[day]) grouped[day] = { entries: [] }
+                grouped[day].entries.push(d)
+            })
+
+        // Build leaders + stats for each day
         const results = {}
-
         for (let day = 1; day <= TOTAL_DAYS; day++) {
-            // Fetch leaderboard for this day
-            const { data: leadData } = await supabase
-                .from('race_entries')
-                .select('registration_id, best_lap_time_ms, average_lap_time_ms, rounds_completed, race_status, race_day, registrations!inner(full_name, enrollment_no, college, rounds)')
-                .eq('race_day', day)
-                .not('best_lap_time_ms', 'is', null)
-                .order('best_lap_time_ms', { ascending: true })
+            const dayEntries = grouped[day]?.entries || []
 
-            const leaders = (leadData || []).map((d, i) => ({
+            // Sort by best_lap_time and assign ranks
+            dayEntries.sort((a, b) => a.best_lap_time_ms - b.best_lap_time_ms)
+
+            const leaders = dayEntries.map((d, i) => ({
                 rank: i + 1,
                 full_name: d.registrations.full_name,
                 enrollment_no: d.registrations.enrollment_no,
@@ -40,20 +54,14 @@ export default function PublicLeaderboard() {
                 race_status: d.race_status,
             }))
 
-            // Calculate stats for this day
-            const { data: allData } = await supabase
-                .from('race_entries')
-                .select('best_lap_time_ms, average_lap_time_ms, rounds_completed')
-                .eq('race_day', day)
-                .not('best_lap_time_ms', 'is', null)
-
+            // Stats
             let stats = { fastestOfDday: null, totalParticipants: 0, totalLaps: 0, avgOverall: null }
-            if (allData && allData.length > 0) {
-                const fastest = Math.min(...allData.map(d => d.best_lap_time_ms))
-                const totalLaps = allData.reduce((acc, curr) => acc + curr.rounds_completed, 0)
-                const sumAvgs = allData.reduce((acc, curr) => acc + curr.average_lap_time_ms, 0)
-                const avgOverall = Math.round(sumAvgs / allData.length)
-                stats = { fastestOfDday: fastest, totalParticipants: allData.length, totalLaps, avgOverall }
+            if (dayEntries.length > 0) {
+                const fastest = Math.min(...dayEntries.map(d => d.best_lap_time_ms))
+                const totalLaps = dayEntries.reduce((acc, d) => acc + d.rounds_completed, 0)
+                const sumAvgs = dayEntries.reduce((acc, d) => acc + (d.average_lap_time_ms || 0), 0)
+                const avgOverall = Math.round(sumAvgs / dayEntries.length)
+                stats = { fastestOfDday: fastest, totalParticipants: dayEntries.length, totalLaps, avgOverall }
             }
 
             results[day] = { leaders, stats }
@@ -62,26 +70,38 @@ export default function PublicLeaderboard() {
         setDayData(results)
     }, [])
 
-    // ── Fetch Active Racer (current day only) ──
+    // ── Fetch Active Racer (any currently racing) ──
     const fetchActiveRacer = useCallback(async () => {
-        const currentDay = getRaceDay()
         const { data } = await supabase
             .from('race_entries')
             .select('registration_id, race_status, rounds_completed, race_started_at, race_day, registrations!inner(full_name, college, enrollment_no, rounds)')
             .eq('race_status', 'racing')
-            .eq('race_day', currentDay)
             .limit(1)
             .maybeSingle()
 
         if (data) {
-            const { data: laps } = await supabase
-                .from('laps')
-                .select('*')
-                .eq('registration_id', data.registration_id)
-                .eq('race_day', data.race_day)
-                .order('lap_number', { ascending: true })
+            // Fetch laps — try with race_day first, fallback without
+            let lapsData = null
+            if (data.race_day) {
+                const { data: laps } = await supabase
+                    .from('laps')
+                    .select('*')
+                    .eq('registration_id', data.registration_id)
+                    .eq('race_day', data.race_day)
+                    .order('lap_number', { ascending: true })
+                lapsData = laps
+            }
+            // Fallback: fetch laps without race_day filter
+            if (!lapsData || lapsData.length === 0) {
+                const { data: laps } = await supabase
+                    .from('laps')
+                    .select('*')
+                    .eq('registration_id', data.registration_id)
+                    .order('lap_number', { ascending: true })
+                lapsData = laps
+            }
 
-            const validLaps = (laps || []).filter(l => l.valid !== false)
+            const validLaps = (lapsData || []).filter(l => l.valid !== false)
             let currentLapStart = new Date(data.race_started_at).getTime()
 
             if (validLaps.length > 0) {
